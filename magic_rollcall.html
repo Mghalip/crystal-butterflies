@@ -1,207 +1,221 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AR 魔法女巫 · 掌心魔法球点名</title>
+  <title>Crystal Butterflies & 3D Particles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       width: 100%; height: 100%; overflow: hidden;
-      background: #0a0814;
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
-      color: #fff; user-select: none;
+      background: radial-gradient(circle at 50% 48%, #10111a 0%, #050508 72%, #020204 100%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      color: #f3f4f6; user-select: none; -webkit-font-smoothing: antialiased;
     }
 
-    /* 全屏原比例真人摄像头背景，人物在画面正中，不拉伸 */
-    #webcam {
-      position: fixed; inset: 0; width: 100%; height: 100%;
-      object-fit: cover; transform: scaleX(-1); z-index: 1;
-      background: #0a0814;
-      transition: filter 0.4s ease;
+    #webcam-wrap {
+      position: fixed; top: 64px; right: 16px; z-index: 8;
+      width: 148px; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(8, 9, 14, 0.8);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
     }
+    #webcam-wrap.visible { opacity: 1; }
+    #webcam-wrap.fullscreen-bg {
+      top: 0; right: 0; inset: 0; width: 100%; height: 100%;
+      aspect-ratio: auto; border-radius: 0; border: none; box-shadow: none; z-index: 1;
+    }
+    #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
 
-    /* 梦幻紫金魔法滤镜（通透不糊脸） */
-    #webcam.magic-filter {
-      filter: contrast(1.06) saturate(1.18) brightness(1.04) hue-rotate(-6deg);
-    }
+    #canvas-container { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; cursor: grab; }
+    #canvas-container:active { cursor: grabbing; }
 
-    /* 紫金星光边缘柔光罩 */
-    #magic-vignette {
-      position: fixed; inset: 0; z-index: 2; pointer-events: none;
-      background:
-        radial-gradient(circle at 50% 45%, rgba(253, 224, 71, 0.04) 0%, rgba(124, 58, 237, 0.14) 68%, rgba(17, 10, 42, 0.56) 100%),
-        linear-gradient(180deg, rgba(88, 28, 135, 0.18) 0%, rgba(0, 0, 0, 0) 30%, rgba(30, 14, 62, 0.25) 100%);
-      mix-blend-mode: screen;
-      transition: opacity 0.4s ease;
-    }
-    #magic-vignette.off { opacity: 0; }
-
-    /* Three.js 透明 3D 叠加层（3D 女巫帽 + 掌心魔法球 + 魔法星尘） */
-    #three-canvas {
-      position: fixed; inset: 0; width: 100%; height: 100%;
-      z-index: 3; pointer-events: none;
-    }
-
-    /* 极简启动层 */
-    #start-overlay {
-      position: fixed; inset: 0; z-index: 20;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-      background: radial-gradient(circle at 50% 45%, rgba(32, 18, 66, 0.88), rgba(8, 6, 18, 0.96));
-      backdrop-filter: blur(12px);
-      transition: opacity 0.5s ease, visibility 0.5s ease;
-    }
-    #start-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-    .start-title {
-      font-size: 28px; font-weight: 500; letter-spacing: 0.14em;
-      background: linear-gradient(120deg, #fde68a, #d8b4fe, #7dd3fc);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .start-sub {
-      font-size: 13px; color: rgba(255, 255, 255, 0.76);
-      text-align: center; line-height: 1.9; letter-spacing: 0.04em;
-    }
-    #start-btn {
-      margin-top: 6px; padding: 12px 36px; border-radius: 999px;
-      border: 1px solid rgba(253, 224, 71, 0.45);
-      background: linear-gradient(120deg, rgba(139, 92, 246, 0.35), rgba(245, 158, 11, 0.28));
-      color: #fffbeb; font-size: 15px; letter-spacing: 0.1em; cursor: pointer;
-      backdrop-filter: blur(10px); transition: all 0.25s ease;
-      box-shadow: 0 0 28px rgba(167, 139, 250, 0.35);
-    }
-    #start-btn:hover { transform: translateY(-1px); box-shadow: 0 0 36px rgba(253, 224, 71, 0.45); }
-    #start-btn:disabled { opacity: 0.55; cursor: wait; }
-    #error-msg { font-size: 13px; color: #fda4af; min-height: 18px; text-align: center; padding: 0 20px; }
-
-    /* 极简角落 HUD */
-    #hud {
-      position: fixed; top: 14px; left: 14px; right: 14px; z-index: 10;
+    .top-bar {
+      position: fixed; top: 14px; left: 14px; right: 14px; z-index: 12;
       display: flex; align-items: center; justify-content: space-between;
-      gap: 8px; flex-wrap: wrap; pointer-events: none;
-      opacity: 0; transition: opacity 0.45s ease;
+      gap: 10px; pointer-events: none; flex-wrap: wrap;
     }
-    #hud.visible { opacity: 1; }
-
-    .pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 13px; border-radius: 999px;
-      background: rgba(14, 10, 30, 0.42); border: 1px solid rgba(253, 224, 71, 0.24);
-      backdrop-filter: blur(10px); font-size: 12px; color: #fefce8; pointer-events: auto;
+    .status-group {
+      display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
+      background: rgba(15, 16, 24, 0.58); border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      font-size: 12px; color: rgba(255, 255, 255, 0.84); pointer-events: auto;
     }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
-    .dot.spinning { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
-    .dot.locked { background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; flex-shrink: 0; transition: all 0.25s ease; }
+    .status-dot.active { background: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.85); }
+    .status-dot.tracking { background: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.85); }
 
-    .corner-btns { display: flex; gap: 7px; pointer-events: auto; flex-wrap: wrap; }
+    .mode-switch {
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px;
+      background: rgba(15, 16, 24, 0.65); border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); pointer-events: auto;
+    }
+    .mode-btn {
+      border: none; background: transparent; color: rgba(255, 255, 255, 0.72);
+      font-size: 12px; font-weight: 500; padding: 6px 13px; border-radius: 999px;
+      cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+    }
+    .mode-btn:hover { color: #fff; }
+    .mode-btn.active { background: rgba(255, 255, 255, 0.92); color: #0b0d17; font-weight: 600; }
+
+    .top-actions { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; }
+    .cam-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.1);
+      color: #fff; font-size: 12px; font-weight: 500; cursor: pointer;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: all 0.2s ease; white-space: nowrap;
+    }
+    .cam-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.36); }
+    .cam-btn.on { background: rgba(56, 189, 248, 0.22); border-color: rgba(56, 189, 248, 0.55); color: #e0f2fe; }
+    .cam-btn:disabled { opacity: 0.55; cursor: wait; }
+
     .icon-btn {
-      height: 34px; padding: 0 12px; border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      background: rgba(14, 10, 30, 0.42); color: #fff;
-      font-size: 12px; cursor: pointer; backdrop-filter: blur(10px);
-      display: inline-flex; align-items: center; gap: 5px;
-      transition: all 0.2s ease; white-space: nowrap;
+      width: 33px; height: 33px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(15, 16, 24, 0.52); color: #fff; cursor: pointer;
+      display: grid; place-items: center; font-size: 14px; backdrop-filter: blur(12px);
     }
-    .icon-btn:hover { background: rgba(139, 92, 246, 0.32); border-color: rgba(253, 224, 71, 0.5); }
-    .icon-btn.active { border-color: rgba(253, 224, 71, 0.6); color: #fef08a; }
+    .icon-btn:hover { background: rgba(255, 255, 255, 0.18); }
+    .hidden { display: none !important; }
 
-    /* 底部极细提示 */
-    #hint-bar {
-      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10;
-      display: flex; gap: 14px; padding: 6px 16px; border-radius: 999px;
-      background: rgba(14, 10, 30, 0.36); border: 1px solid rgba(255, 255, 255, 0.14);
-      backdrop-filter: blur(10px); font-size: 12px; color: rgba(255, 255, 255, 0.86);
-      pointer-events: none; opacity: 0; transition: opacity 0.45s ease; white-space: nowrap;
+    .dock-wrapper {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 12;
+      display: flex; flex-direction: column; align-items: center; gap: 9px; max-width: calc(100vw - 20px);
     }
-    #hint-bar.visible { opacity: 1; }
+    .color-popover {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px;
+      background: rgba(16, 17, 26, 0.86); border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(18px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      opacity: 0; transform: translateY(8px); pointer-events: none; transition: all 0.2s ease;
+    }
+    .color-popover.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .preset-dot {
+      width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease;
+    }
+    .preset-dot:hover { transform: scale(1.16); border-color: #fff; }
+    .custom-color-label {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.78);
+      padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, 0.14); cursor: pointer;
+    }
+    #color-picker { width: 22px; height: 22px; border: none; background: transparent; cursor: pointer; }
 
-    /* 名单弹窗 */
-    #roster-modal {
-      position: fixed; inset: 0; z-index: 30;
-      display: flex; align-items: center; justify-content: center; padding: 18px;
-      background: rgba(6, 5, 16, 0.7); backdrop-filter: blur(10px);
-      opacity: 0; visibility: hidden; pointer-events: none; transition: all 0.25s ease;
+    .dock {
+      display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 999px;
+      background: rgba(18, 19, 28, 0.7); border: 1px solid rgba(255, 255, 255, 0.13);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55); overflow-x: auto; max-width: 100%; scrollbar-width: none;
     }
-    #roster-modal.open { opacity: 1; visibility: visible; pointer-events: auto; }
-    .modal-card {
-      width: 100%; max-width: 440px; border-radius: 20px; padding: 20px;
-      background: rgba(20, 16, 40, 0.96); border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
-      display: flex; flex-direction: column; gap: 12px;
+    .dock::-webkit-scrollbar { display: none; }
+    .shape-btn {
+      border: none; background: transparent; color: rgba(255, 255, 255, 0.68);
+      font-size: 12px; font-weight: 500; padding: 8px 13px; border-radius: 999px;
+      cursor: pointer; white-space: nowrap; transition: all 0.22s ease;
     }
-    .modal-head { display: flex; align-items: center; justify-content: space-between; }
-    .modal-title { font-size: 16px; font-weight: 600; }
-    .close-x { width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; cursor: pointer; }
-    .modal-desc { font-size: 12px; color: rgba(255,255,255,0.68); line-height: 1.5; }
-    #roster-textarea {
-      width: 100%; height: 170px; padding: 10px 12px; border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.2); background: rgba(8,8,18,0.85);
-      color: #fff; font-size: 14px; line-height: 1.6; resize: vertical; outline: none; font-family: inherit;
+    .shape-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+    .shape-btn.active { background: rgba(165, 198, 255, 0.94); color: #0b0d17; font-weight: 600; box-shadow: 0 0 18px rgba(165, 198, 255, 0.45); }
+    .dock-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.14); margin: 0 4px; flex-shrink: 0; }
+    .color-trigger {
+      width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.75);
+      background: #f5d08a; cursor: pointer; flex-shrink: 0; margin-right: 4px; box-shadow: 0 0 12px rgba(245, 208, 138, 0.45);
     }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-    .history-box { font-size: 12px; color: rgba(255,255,255,0.75); max-height: 62px; overflow-y: auto; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); }
-    .modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .save-btn { border: none; padding: 8px 18px; border-radius: 999px; background: linear-gradient(120deg, #a78bfa, #fde68a); color: #090817; font-weight: 600; font-size: 13px; cursor: pointer; }
+    .manual-bar {
+      display: flex; align-items: center; gap: 10px; font-size: 11px; color: rgba(255, 255, 255, 0.62);
+      padding: 4px 12px; border-radius: 999px; background: rgba(15, 16, 24, 0.44);
+      border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px);
+    }
+    .manual-bar input[type="range"] { width: 108px; accent-color: #a5c6ff; cursor: pointer; height: 4px; }
+
+    .butterfly-hint {
+      display: flex; align-items: center; gap: 14px; padding: 8px 18px; border-radius: 999px;
+      background: rgba(14, 14, 24, 0.45); border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(12px); font-size: 12px; color: rgba(255, 255, 255, 0.85); white-space: nowrap;
+    }
+
+    #toast {
+      position: fixed; top: 66px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 20;
+      padding: 8px 16px; border-radius: 999px; background: rgba(24, 24, 36, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.16); color: #fde68a; font-size: 12px;
+      opacity: 0; pointer-events: none; transition: all 0.25s ease; max-width: 90vw; text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 640px) {
+      .dock-wrapper { width: 95vw; }
+      .dock, .butterfly-hint { justify-content: center; flex-wrap: wrap; gap: 5px 10px; border-radius: 14px; }
+      .status-group { order: 3; width: 100%; justify-content: center; }
+      .shape-btn { padding: 7px 10px; font-size: 11px; }
+      #webcam-wrap:not(.fullscreen-bg) { top: 106px; width: 108px; }
+    }
   </style>
 
-  <!-- Three.js + MediaPipe Hands + MediaPipe FaceMesh -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <video id="webcam" class="magic-filter" autoplay playsinline muted></video>
-  <div id="magic-vignette"></div>
-  <canvas id="three-canvas"></canvas>
-
-  <div id="start-overlay">
-    <div class="start-title">🧙‍♀️ 实时 3D 女巫 · 掌心魔法球</div>
-    <div class="start-sub">
-      实时为你戴上跟随转头歪头的 3D 星空女巫帽与紫金魔法光晕<br />
-      ✋ 摊开/水平托掌：学生姓名在掌心高速旋转<br />
-      ✊ 握紧拳头：星光定格，揭晓被点中的同学
-    </div>
-    <button id="start-btn">开启魔法摄像头</button>
-    <div id="error-msg"></div>
+  <div id="webcam-wrap">
+    <video id="webcam" autoplay playsinline muted></video>
   </div>
+  <div id="canvas-container"></div>
 
-  <div id="hud">
-    <div class="pill">
-      <span id="status-dot" class="dot"></span>
-      <span id="status-text">请摊开手掌召唤魔法球</span>
-      <span id="counter-text" style="opacity:0.78;margin-left:4px;">· 0/24</span>
+  <div class="top-bar">
+    <div class="status-group">
+      <span id="status-dot" class="status-dot"></span>
+      <span id="status-label">Drag to rotate, or start your camera to use hand gestures.</span>
     </div>
-    <div class="corner-btns">
-      <button id="hat-btn" class="icon-btn active" type="button">🧙‍♀️ 女巫帽</button>
-      <button id="filter-btn" class="icon-btn active" type="button">✨ 紫金滤镜</button>
-      <button id="roster-btn" class="icon-btn" type="button">📋 名单</button>
-      <button id="mute-btn" class="icon-btn" type="button" title="开关音效">🔊</button>
+
+    <div class="mode-switch" role="tablist" aria-label="Choose an experience">
+      <button id="mode-particles" class="mode-btn active" type="button">✨ 3D Particles</button>
+      <button id="mode-butterfly" class="mode-btn" type="button">🦋 Crystal Butterflies</button>
+    </div>
+
+    <div class="top-actions">
+      <button id="mute-btn" class="icon-btn hidden" type="button" title="Toggle butterfly sounds">🔊</button>
+      <button id="cam-btn" class="cam-btn" type="button">
+        <span>📷</span>
+        <span id="cam-btn-text">Start camera</span>
+      </button>
     </div>
   </div>
 
-  <div id="hint-bar">
-    <span>🧙‍♀️ 头部实时佩戴 3D 女巫帽</span>
-    <span>✋ 摊掌/托掌：旋转点名</span>
-    <span>✊ 握拳：定格揭晓</span>
-  </div>
+  <div id="toast"></div>
 
-  <div id="roster-modal">
-    <div class="modal-card">
-      <div class="modal-head">
-        <div class="modal-title">学生名单</div>
-        <button id="close-modal-btn" class="close-x" type="button">×</button>
-      </div>
-      <div class="modal-desc">每行输入一个学生姓名（也支持逗号、顿号或空格分隔），保存后立即更新到掌心魔法球。</div>
-      <textarea id="roster-textarea"></textarea>
-      <label class="toggle-row">
-        <span>不重复点名（全班点完自动重置）</span>
-        <input id="no-repeat-check" type="checkbox" checked />
+  <div id="particle-dock" class="dock-wrapper">
+    <div id="color-popover" class="color-popover">
+      <button class="preset-dot" type="button" data-color="#f5d08a" style="background:#f5d08a" title="Sand gold"></button>
+      <button class="preset-dot" type="button" data-color="#ff7eb9" style="background:#ff7eb9" title="Cherry blossom pink"></button>
+      <button class="preset-dot" type="button" data-color="#60c8ff" style="background:#60c8ff" title="Starlight blue"></button>
+      <button class="preset-dot" type="button" data-color="#c084fc" style="background:#c084fc" title="Dream violet"></button>
+      <button class="preset-dot" type="button" data-color="#5eead4" style="background:#5eead4" title="Jade green"></button>
+      <label class="custom-color-label">
+        Custom
+        <input id="color-picker" type="color" value="#f5d08a" />
       </label>
-      <div id="history-box" class="history-box">已点记录：暂无</div>
-      <div class="modal-footer">
-        <button id="reset-picked-btn" class="icon-btn" type="button">重置已点</button>
-        <button id="save-roster-btn" class="save-btn" type="button">保存名单</button>
-      </div>
+    </div>
+
+    <div class="dock" role="toolbar" aria-label="Particle shapes and colors">
+      <button class="shape-btn" type="button" data-shape="heart">Heart</button>
+      <button class="shape-btn active" type="button" data-shape="saturn">Saturn</button>
+      <button class="shape-btn" type="button" data-shape="flower">Flower</button>
+      <button class="shape-btn" type="button" data-shape="buddha">Buddha</button>
+      <button class="shape-btn" type="button" data-shape="fireworks">Fireworks</button>
+      <div class="dock-divider"></div>
+      <button id="color-trigger" class="color-trigger" type="button" title="Choose a particle color"></button>
+    </div>
+
+    <div id="manual-bar" class="manual-bar">
+      <span>Spread / Zoom</span>
+      <input id="expansion-slider" type="range" min="0" max="100" value="25" />
+    </div>
+  </div>
+
+  <div id="butterfly-dock" class="dock-wrapper hidden">
+    <div class="butterfly-hint">
+      <span>✋ Open palm to release</span>
+      <span>✊ Make a fist to gather</span>
+      <span>👌 Pinch to summon a giant butterfly</span>
     </div>
   </div>
 
@@ -209,410 +223,509 @@
     (function () {
       'use strict';
 
-      const DEFAULT_STUDENTS = Array.from({ length: 24 }, (_, i) => '同学' + String(i + 1).padStart(2, '0'));
-
-      let students = [];
-      let pickedList = [];
-      let noRepeat = true;
-
-      try {
-        const saved = localStorage.getItem('magic_rollcall_students');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) students = parsed;
-        }
-      } catch (_) {}
-      if (students.length === 0) students = DEFAULT_STUDENTS.slice();
-
+      const container = document.getElementById('canvas-container');
+      const webcamWrap = document.getElementById('webcam-wrap');
       const videoEl = document.getElementById('webcam');
-      const magicVignette = document.getElementById('magic-vignette');
-      const canvasEl = document.getElementById('three-canvas');
-      const startOverlay = document.getElementById('start-overlay');
-      const startBtn = document.getElementById('start-btn');
-      const errorMsg = document.getElementById('error-msg');
-      const hudEl = document.getElementById('hud');
-      const hintBar = document.getElementById('hint-bar');
       const statusDot = document.getElementById('status-dot');
-      const statusText = document.getElementById('status-text');
-      const counterText = document.getElementById('counter-text');
-      const hatBtn = document.getElementById('hat-btn');
-      const filterBtn = document.getElementById('filter-btn');
-      const rosterBtn = document.getElementById('roster-btn');
+      const statusLabel = document.getElementById('status-label');
+      const camBtn = document.getElementById('cam-btn');
+      const camBtnText = document.getElementById('cam-btn-text');
       const muteBtn = document.getElementById('mute-btn');
-      const rosterModal = document.getElementById('roster-modal');
-      const closeModalBtn = document.getElementById('close-modal-btn');
-      const rosterTextarea = document.getElementById('roster-textarea');
-      const noRepeatCheck = document.getElementById('no-repeat-check');
-      const historyBox = document.getElementById('history-box');
-      const resetPickedBtn = document.getElementById('reset-picked-btn');
-      const saveRosterBtn = document.getElementById('save-roster-btn');
+      const modeParticlesBtn = document.getElementById('mode-particles');
+      const modeButterflyBtn = document.getElementById('mode-butterfly');
+      const particleDock = document.getElementById('particle-dock');
+      const butterflyDock = document.getElementById('butterfly-dock');
+      const colorTrigger = document.getElementById('color-trigger');
+      const colorPopover = document.getElementById('color-popover');
+      const colorPicker = document.getElementById('color-picker');
+      const expansionSlider = document.getElementById('expansion-slider');
+      const manualBar = document.getElementById('manual-bar');
+      const toastEl = document.getElementById('toast');
+      const shapeBtns = Array.from(document.querySelectorAll('.shape-btn'));
+      const presetDots = Array.from(document.querySelectorAll('.preset-dot'));
 
-      let showHat = true;
-      let filterOn = true;
-
-      hatBtn.addEventListener('click', () => {
-        showHat = !showHat;
-        hatBtn.classList.toggle('active', showHat);
-        hatAnchor.visible = showHat;
-      });
-
-      filterBtn.addEventListener('click', () => {
-        filterOn = !filterOn;
-        filterBtn.classList.toggle('active', filterOn);
-        videoEl.classList.toggle('magic-filter', filterOn);
-        magicVignette.classList.toggle('off', !filterOn);
-      });
-
-      function updateCounter() {
-        counterText.textContent = '· ' + pickedList.length + '/' + students.length;
-        historyBox.textContent = pickedList.length ? '已点记录：' + pickedList.join('、') : '已点记录：暂无';
+      let currentMode = 'particles';
+      let toastTimer = null;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3600);
       }
-      updateCounter();
 
-      // ==================== 魔法音效 ====================
-      class MagicAudio {
-        constructor() { this.ctx = null; this.muted = false; this.lastTick = 0; }
+      class SoundEngine {
+        constructor() {
+          this.ctx = null; this.masterGain = null; this.delayNode = null;
+          this.muted = false; this.lastNoteTime = 0; this.lastGatherTime = 0;
+          this.scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98];
+        }
         init() {
           if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (AC) this.ctx = new AC();
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          this.ctx = new AudioCtx();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = 0.28;
+          this.masterGain.connect(this.ctx.destination);
+          this.delayNode = this.ctx.createDelay(1.0);
+          this.delayNode.delayTime.value = 0.28;
+          const feedback = this.ctx.createGain(); feedback.gain.value = 0.32;
+          const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 2600;
+          this.delayNode.connect(filter); filter.connect(feedback); feedback.connect(this.delayNode);
+          filter.connect(this.masterGain);
         }
-        playTick() {
+        setMuted(m) {
+          this.muted = m;
+          if (this.masterGain && this.ctx) this.masterGain.gain.setTargetAtTime(m ? 0 : 0.28, this.ctx.currentTime, 0.05);
+        }
+        playFlutterNote() {
           if (!this.ctx || this.muted) return;
           const now = this.ctx.currentTime;
-          if (now - this.lastTick < 0.095) return;
-          this.lastTick = now;
-          const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(740 + Math.random() * 520, now);
-          g.gain.setValueAtTime(0.0001, now);
-          g.gain.exponentialRampToValueAtTime(0.04, now + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
-          osc.connect(g); g.connect(this.ctx.destination);
-          osc.start(now); osc.stop(now + 0.11);
+          if (now - this.lastNoteTime < 0.15) return;
+          this.lastNoteTime = now;
+          const freq = this.scale[Math.floor(Math.random() * this.scale.length)];
+          const osc1 = this.ctx.createOscillator(), osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain(), osc2Gain = this.ctx.createGain();
+          osc1.type = 'sine'; osc1.frequency.setValueAtTime(freq, now);
+          osc2.type = 'triangle'; osc2.frequency.setValueAtTime(freq * 2, now);
+          osc2Gain.gain.value = 0.16;
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.16, now + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.15);
+          osc1.connect(gain); osc2.connect(osc2Gain); osc2Gain.connect(gain);
+          gain.connect(this.masterGain); gain.connect(this.delayNode);
+          osc1.start(now); osc2.start(now); osc1.stop(now + 1.2); osc2.stop(now + 1.2);
         }
-        playReveal() {
+        playGatherChime() {
           if (!this.ctx || this.muted) return;
           const now = this.ctx.currentTime;
-          [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((freq, i) => {
-            const t = now + i * 0.05;
-            const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, t);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(0.11, t + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
-            osc.connect(g); g.connect(this.ctx.destination);
-            osc.start(t); osc.stop(t + 1.15);
+          if (now - this.lastGatherTime < 0.85) return;
+          this.lastGatherTime = now;
+          [392.0, 523.25, 659.25].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+            gain.gain.setValueAtTime(0.0001, now + idx * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.08, now + idx * 0.06 + 0.18);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.06 + 1.4);
+            osc.connect(gain); gain.connect(this.masterGain); gain.connect(this.delayNode);
+            osc.start(now + idx * 0.06); osc.stop(now + idx * 0.06 + 1.45);
+          });
+        }
+        playPinchBloom() {
+          if (!this.ctx || this.muted) return;
+          const now = this.ctx.currentTime;
+          [659.25, 783.99, 1046.5, 1318.51, 1567.98].forEach((freq, i) => {
+            const t = now + i * 0.055;
+            const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.14, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+            osc.connect(gain); gain.connect(this.masterGain); gain.connect(this.delayNode);
+            osc.start(t); osc.stop(t + 1.55);
           });
         }
       }
-      const magicAudio = new MagicAudio();
-      muteBtn.addEventListener('click', () => {
-        magicAudio.init();
-        magicAudio.muted = !magicAudio.muted;
-        muteBtn.textContent = magicAudio.muted ? '🔇' : '🔊';
-      });
 
-      // ==================== Three.js 场景搭建 ====================
-      const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      const sound = new SoundEngine();
+      muteBtn.addEventListener('click', () => {
+        sound.init();
+        sound.setMuted(!sound.muted);
+        muteBtn.textContent = sound.muted ? '🔇' : '🔊';
+      });
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-      camera.position.set(0, 0, 10);
+      const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 120);
+      camera.position.set(0, 0.5, 13.5);
 
-      // 柔美紫金三点光，让 3D 女巫帽呈现丝绒立体光泽
-      scene.add(new THREE.AmbientLight(0xd8b4fe, 0.95));
-      const keyLight = new THREE.DirectionalLight(0xfff4d6, 1.35);
-      keyLight.position.set(2.5, 5, 6);
-      scene.add(keyLight);
-      const rimLight = new THREE.DirectionalLight(0x818cf8, 1.1);
-      rimLight.position.set(-4, 2, -2);
-      scene.add(rimLight);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
 
-      function createGlowTex(innerColor, midColor) {
-        const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+      const dirLight = new THREE.DirectionalLight(0xfff4ff, 1.0);
+      dirLight.position.set(3, 5, 8);
+      scene.add(dirLight);
+
+      const particleRoot = new THREE.Group();
+      const butterflyRoot = new THREE.Group();
+      butterflyRoot.visible = false;
+      scene.add(particleRoot, butterflyRoot);
+
+      const PARTICLE_COUNT = 10000;
+      function createGlowTexture() {
+        const size = 64, c = document.createElement('canvas'); c.width = size; c.height = size;
         const ctx = c.getContext('2d');
-        const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        g.addColorStop(0, innerColor); g.addColorStop(0.32, midColor); g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+        const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.24, 'rgba(255,250,235,0.85)');
+        g.addColorStop(0.55, 'rgba(255,235,200,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
         return new THREE.CanvasTexture(c);
       }
-      const starTex = createGlowTex('rgba(255,255,255,1)', 'rgba(196,181,253,0.75)');
-      const orbAuraTex = createGlowTex('rgba(254,240,138,0.65)', 'rgba(139,92,246,0.4)');
 
-      // ==================== 1. 全屏飘浮紫金魔法星尘 ====================
-      const AMBIENT_N = 110;
-      const ambPos = new Float32Array(AMBIENT_N * 3);
-      const ambCol = new Float32Array(AMBIENT_N * 3);
-      const ambSpeed = new Float32Array(AMBIENT_N);
-      const colGold = new THREE.Color('#fde68a'), colViolet = new THREE.Color('#c084fc');
-      for (let i = 0; i < AMBIENT_N; i++) {
-        ambPos[i * 3] = (Math.random() - 0.5) * 14;
-        ambPos[i * 3 + 1] = (Math.random() - 0.5) * 8;
-        ambPos[i * 3 + 2] = (Math.random() - 0.5) * 2 - 1;
-        ambSpeed[i] = 0.15 + Math.random() * 0.35;
-        const c = Math.random() < 0.55 ? colGold : colViolet;
-        ambCol[i * 3] = c.r; ambCol[i * 3 + 1] = c.g; ambCol[i * 3 + 2] = c.b;
-      }
-      const ambGeo = new THREE.BufferGeometry();
-      ambGeo.setAttribute('position', new THREE.BufferAttribute(ambPos, 3));
-      ambGeo.setAttribute('color', new THREE.BufferAttribute(ambCol, 3));
-      scene.add(new THREE.Points(ambGeo, new THREE.PointsMaterial({
-        size: 0.15, map: starTex, vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false, blending: THREE.AdditiveBlending
-      })));
-
-      // ==================== 2. 实时 3D 星空女巫尖顶帽 ====================
-      function createStarryVelvetTexture() {
-        const c = document.createElement('canvas'); c.width = 512; c.height = 512;
-        const ctx = c.getContext('2d');
-        const g = ctx.createLinearGradient(0, 0, 0, 512);
-        g.addColorStop(0, '#312e81');
-        g.addColorStop(0.5, '#1e1b4b');
-        g.addColorStop(1, '#110d2b');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 512, 512);
-
-        // 金色小星星与星芒
-        for (let i = 0; i < 65; i++) {
-          const x = Math.random() * 512, y = Math.random() * 512;
-          const r = 1.2 + Math.random() * 3.2;
-          ctx.fillStyle = Math.random() < 0.75 ? '#fde68a' : '#e9d5ff';
-          ctx.globalAlpha = 0.55 + Math.random() * 0.45;
-          ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      function buildHeartTargets(count) {
+        const arr = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          const t = Math.random() * Math.PI * 2, u = (Math.random() - 0.5) * 2;
+          const shell = 0.65 + Math.pow(Math.random(), 0.45) * 0.35;
+          const x = 16 * Math.pow(Math.sin(t), 3) * 0.22 * shell;
+          const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * 0.22 * shell + 0.3;
+          const depth = Math.sqrt(Math.max(0.05, 1 - Math.abs(u))) * (1.55 - Math.abs(x) * 0.22);
+          arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = u * depth * shell;
         }
-        // 金色小弯月纹样
-        ctx.globalAlpha = 0.85;
-        ctx.fillStyle = '#fcd34d';
-        for (let i = 0; i < 10; i++) {
-          const x = 30 + Math.random() * 450, y = 40 + Math.random() * 420;
-          ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#1e1b4b';
-          ctx.beginPath(); ctx.arc(x + 3.5, y - 1.5, 6.8, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#fcd34d';
-        }
-        const tex = new THREE.CanvasTexture(c);
-        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-        return tex;
+        return arr;
       }
 
-      const hatAnchor = new THREE.Group();
-      hatAnchor.scale.setScalar(0.001);
-      scene.add(hatAnchor);
+      function buildSaturnTargets(count) {
+        const arr = new Float32Array(count * 3);
+        const coreCount = Math.floor(count * 0.44), cosT = Math.cos(0.44), sinT = Math.sin(0.44);
+        for (let i = 0; i < count; i++) {
+          let x, y, z;
+          if (i < coreCount) {
+            const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2;
+            const r = 2.05 * (0.88 + Math.random() * 0.14);
+            x = r * Math.sin(phi) * Math.cos(theta); y = r * Math.cos(phi) * 0.92; z = r * Math.sin(phi) * Math.sin(theta);
+          } else {
+            const r = Math.random() < 0.55 ? 2.85 + Math.random() * 1.15 : 4.28 + Math.random() * 1.15;
+            const theta = Math.random() * Math.PI * 2;
+            x = Math.cos(theta) * r; y = (Math.random() - 0.5) * 0.14; z = Math.sin(theta) * r;
+          }
+          arr[i * 3] = x; arr[i * 3 + 1] = y * cosT - z * sinT; arr[i * 3 + 2] = y * sinT + z * cosT;
+        }
+        return arr;
+      }
 
-      const velvetTex = createStarryVelvetTexture();
-      const hatMat = new THREE.MeshStandardMaterial({
-        map: velvetTex, roughness: 0.72, metalness: 0.18, side: THREE.DoubleSide
+      function buildFlowerTargets(count) {
+        const arr = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          if (i < count * 0.18) {
+            const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2, r = 0.85 * Math.cbrt(Math.random());
+            arr[i * 3] = r * Math.sin(phi) * Math.cos(theta); arr[i * 3 + 1] = r * Math.cos(phi) * 0.65 + 0.35; arr[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+          } else {
+            const layer = i % 3, angle = Math.random() * Math.PI * 2;
+            const petalWave = Math.pow(Math.abs(Math.cos(angle * 3 + layer * 0.52)), 0.72);
+            const u = Math.pow(Math.random(), 0.65), r = u * (2.2 + layer * 1.05) * (0.35 + 0.65 * petalWave);
+            arr[i * 3] = Math.cos(angle) * r;
+            arr[i * 3 + 1] = Math.sin(u * Math.PI * 0.85) * (1.25 - layer * 0.25) - 0.55 + layer * 0.22 + (Math.random() - 0.5) * 0.12;
+            arr[i * 3 + 2] = Math.sin(angle) * r;
+          }
+        }
+        return arr;
+      }
+
+      function buildBuddhaTargets(count) {
+        const arr = new Float32Array(count * 3);
+        function sampleEllipsoid(cx, cy, cz, rx, ry, rz) {
+          const theta = Math.random() * 2 * Math.PI, phi = Math.acos(2 * Math.random() - 1);
+          const s = 0.78 + Math.pow(Math.random(), 0.45) * 0.22;
+          return [cx + rx * s * Math.sin(phi) * Math.cos(theta), cy + ry * s * Math.cos(phi), cz + rz * s * Math.sin(phi) * Math.sin(theta)];
+        }
+        for (let i = 0; i < count; i++) {
+          const p = Math.random(); let pt;
+          if (p < 0.16) {
+            const a = Math.random() * Math.PI * 2, r = 1.9 + Math.sin(a * 12) * 0.18 + Math.random() * 0.55;
+            pt = [Math.cos(a) * r, -2.55 + (Math.random() - 0.5) * 0.42, Math.sin(a) * r * 0.75];
+          } else if (p < 0.36) pt = sampleEllipsoid((Math.random() < 0.5 ? -1 : 1) * 1.15, -1.78, 0.28, 1.28, 0.62, 0.85);
+          else if (p < 0.58) pt = sampleEllipsoid(0, -0.35, 0, 1.18, 1.38, 0.78);
+          else if (p < 0.68) pt = sampleEllipsoid((Math.random() < 0.5 ? -1 : 1) * 1.12, -0.15, 0.12, 0.45, 0.92, 0.48);
+          else if (p < 0.73) pt = sampleEllipsoid(0, -1.25, 0.62, 0.62, 0.32, 0.36);
+          else if (p < 0.84) pt = sampleEllipsoid(0, 1.52, 0.05, 0.72, 0.84, 0.72);
+          else if (p < 0.88) pt = sampleEllipsoid(0, 2.38, 0.02, 0.34, 0.3, 0.34);
+          else { const a = Math.random() * Math.PI * 2, r = 1.55 + (Math.random() - 0.5) * 0.24; pt = [Math.cos(a) * r, 1.48 + Math.sin(a) * r, -0.82 + (Math.random() - 0.5) * 0.12]; }
+          arr[i * 3] = pt[0]; arr[i * 3 + 1] = pt[1]; arr[i * 3 + 2] = pt[2];
+        }
+        return arr;
+      }
+
+      function buildFireworksTargets(count) {
+        const arr = new Float32Array(count * 3);
+        const bursts = [
+          { cx: 0, cy: 0.5, cz: 0, r: 3.8, rays: 64 },
+          { cx: -2.6, cy: 1.6, cz: -1.1, r: 2.1, rays: 36 },
+          { cx: 2.7, cy: -0.9, cz: 0.9, r: 2.3, rays: 40 },
+          { cx: 1.4, cy: 2.1, cz: -0.8, r: 1.7, rays: 28 }
+        ];
+        for (let i = 0; i < count; i++) {
+          const b = bursts[i % bursts.length], rayIdx = Math.floor(Math.random() * b.rays);
+          const phi = Math.acos(1 - 2 * ((rayIdx + 0.5) / b.rays)), theta = Math.PI * (1 + Math.sqrt(5)) * rayIdx;
+          const progress = Math.pow(Math.random(), 0.55), dist = progress * b.r;
+          arr[i * 3] = b.cx + Math.sin(phi) * Math.cos(theta) * dist;
+          arr[i * 3 + 1] = b.cy + Math.cos(phi) * dist - progress * progress * 0.65;
+          arr[i * 3 + 2] = b.cz + Math.sin(phi) * Math.sin(theta) * dist;
+        }
+        return arr;
+      }
+
+      const SHAPE_TARGETS = {
+        heart: buildHeartTargets(PARTICLE_COUNT),
+        saturn: buildSaturnTargets(PARTICLE_COUNT),
+        flower: buildFlowerTargets(PARTICLE_COUNT),
+        buddha: buildBuddhaTargets(PARTICLE_COUNT),
+        fireworks: buildFireworksTargets(PARTICLE_COUNT)
+      };
+
+      const pScatter = new Float32Array(PARTICLE_COUNT * 3);
+      const pPhases = new Float32Array(PARTICLE_COUNT);
+      const pPositions = new Float32Array(PARTICLE_COUNT * 3);
+      const pColors = new Float32Array(PARTICLE_COUNT * 3);
+      let currentShape = 'saturn';
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        pPositions[i * 3] = SHAPE_TARGETS.saturn[i * 3] * 1.3;
+        pPositions[i * 3 + 1] = SHAPE_TARGETS.saturn[i * 3 + 1] * 1.3;
+        pPositions[i * 3 + 2] = SHAPE_TARGETS.saturn[i * 3 + 2] * 1.3;
+        const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2, amp = 0.6 + Math.random() * 1.8;
+        pScatter[i * 3] = Math.sin(phi) * Math.cos(theta) * amp;
+        pScatter[i * 3 + 1] = Math.cos(phi) * amp;
+        pScatter[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * amp;
+        pPhases[i] = Math.random() * Math.PI * 2;
+      }
+
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+      pGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
+      const pMat = new THREE.PointsMaterial({
+        size: 0.145, map: createGlowTexture(), vertexColors: true,
+        transparent: true, opacity: 0.92, depthWrite: false, blending: THREE.AdditiveBlending
       });
-      const goldMat = new THREE.MeshStandardMaterial({
-        color: 0xfbbf24, emissive: 0x78350f, emissiveIntensity: 0.45, roughness: 0.25, metalness: 0.82
-      });
+      const particleCloud = new THREE.Points(pGeo, pMat);
+      particleRoot.add(particleCloud);
 
-      // 宽大微翘波浪帽檐
-      const brimGeo = new THREE.CylinderGeometry(0.68, 1.48, 0.08, 48, 4, true);
-      const bAttr = brimGeo.attributes.position;
-      for (let i = 0; i < bAttr.count; i++) {
-        const x = bAttr.getX(i), y = bAttr.getY(i), z = bAttr.getZ(i);
-        const r = Math.hypot(x, z);
-        const angle = Math.atan2(z, x);
-        // 帽檐外圈轻微自然波浪起伏
-        const wave = Math.max(0, (r - 0.7) / 0.8) * (Math.sin(angle * 3) * 0.08 + Math.cos(angle * 2) * 0.05);
-        bAttr.setY(i, y + wave);
-      }
-      brimGeo.computeVertexNormals();
-      const brimMesh = new THREE.Mesh(brimGeo, hatMat);
-      brimMesh.position.y = 0.05;
-      hatAnchor.add(brimMesh);
-
-      // 帽檐外缘金线滚边
-      const brimRim = new THREE.Mesh(new THREE.TorusGeometry(1.46, 0.022, 10, 64), goldMat);
-      brimRim.rotation.x = Math.PI / 2;
-      brimRim.position.y = 0.02;
-      hatAnchor.add(brimRim);
-
-      // 俏皮微弯的尖顶帽身
-      const coneGeo = new THREE.ConeGeometry(0.74, 2.05, 36, 18);
-      coneGeo.translate(0, 1.02, 0);
-      const cAttr = coneGeo.attributes.position;
-      for (let i = 0; i < cAttr.count; i++) {
-        const x = cAttr.getX(i), y = cAttr.getY(i), z = cAttr.getZ(i);
-        const t = y / 2.05;
-        // 越靠近帽尖越向右后方优雅弯曲
-        const bendX = Math.pow(t, 2.15) * 0.58;
-        const bendZ = -Math.pow(t, 2.0) * 0.32;
-        const droopY = Math.pow(t, 2.6) * 0.28;
-        cAttr.setXYZ(i, x + bendX, y - droopY, z + bendZ);
-      }
-      coneGeo.computeVertexNormals();
-      const coneMesh = new THREE.Mesh(coneGeo, hatMat);
-      coneMesh.position.y = 0.04;
-      hatAnchor.add(coneMesh);
-
-      // 金色缎带帽圈 + 正前方星月徽章
-      const bandMesh = new THREE.Mesh(new THREE.TorusGeometry(0.71, 0.055, 12, 48), goldMat);
-      bandMesh.rotation.x = Math.PI / 2;
-      bandMesh.position.y = 0.14;
-      hatAnchor.add(bandMesh);
-
-      // 帽前弯月徽章（弧形环 + 发光星点）
-      const moonBadge = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.028, 10, 24, Math.PI * 1.4), goldMat);
-      moonBadge.position.set(0, 0.28, 0.72);
-      moonBadge.rotation.z = 0.6;
-      hatAnchor.add(moonBadge);
-
-      const hatTipGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: starTex, color: 0xfef08a, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending
-      }));
-      hatTipGlow.position.set(0.58, 1.82, -0.32);
-      hatTipGlow.scale.set(0.55, 0.55, 1);
-      hatAnchor.add(hatTipGlow);
-
-      // ==================== 3. 掌心旋转学生姓名魔法球 ====================
-      const handAnchor = new THREE.Group();
-      handAnchor.scale.setScalar(0.001);
-      scene.add(handAnchor);
-
-      const coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: orbAuraTex, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending
-      }));
-      coreGlow.scale.set(3.2, 3.2, 1);
-      handAnchor.add(coreGlow);
-
-      const spinGroup = new THREE.Group();
-      handAnchor.add(spinGroup);
-
-      const SPARK_COUNT = 500;
-      const spPos = new Float32Array(SPARK_COUNT * 3);
-      const spCol = new Float32Array(SPARK_COUNT * 3);
-      const cA = new THREE.Color('#fde68a'), cB = new THREE.Color('#c4b5fd'), cC = new THREE.Color('#7dd3fc');
-      for (let i = 0; i < SPARK_COUNT; i++) {
-        const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2;
-        const r = 1.05 + (Math.random() - 0.5) * 0.28;
-        spPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-        spPos[i * 3 + 1] = r * Math.cos(phi);
-        spPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-        const col = i % 3 === 0 ? cA : (i % 3 === 1 ? cB : cC);
-        spCol[i * 3] = col.r; spCol[i * 3 + 1] = col.g; spCol[i * 3 + 2] = col.b;
-      }
-      const spGeo = new THREE.BufferGeometry();
-      spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
-      spGeo.setAttribute('color', new THREE.BufferAttribute(spCol, 3));
-      spinGroup.add(new THREE.Points(spGeo, new THREE.PointsMaterial({
-        size: 0.14, map: starTex, vertexColors: true, transparent: true, opacity: 0.88, depthWrite: false, blending: THREE.AdditiveBlending
-      })));
-
-      const ring1 = new THREE.Mesh(
-        new THREE.TorusGeometry(1.42, 0.016, 10, 80),
-        new THREE.MeshBasicMaterial({ color: 0xfde68a, transparent: true, opacity: 0.75 })
-      );
-      ring1.rotation.x = Math.PI * 0.42;
-      const ring2 = new THREE.Mesh(
-        new THREE.TorusGeometry(1.62, 0.012, 10, 80),
-        new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.58 })
-      );
-      ring2.rotation.x = -Math.PI * 0.36;
-      ring2.rotation.y = Math.PI * 0.25;
-      handAnchor.add(ring1, ring2);
-
-      const namesGroup = new THREE.Group();
-      spinGroup.add(namesGroup);
-      let nameSprites = [];
-
-      function createNameTexture(name, isWinner) {
-        const c = document.createElement('canvas');
-        c.width = isWinner ? 512 : 320;
-        c.height = isWinner ? 192 : 112;
-        const ctx = c.getContext('2d');
-        const padX = 18, padY = 18, w = c.width - padX * 2, h = c.height - padY * 2, r = h / 2;
-        ctx.beginPath();
-        ctx.moveTo(padX + r, padY);
-        ctx.arcTo(padX + w, padY, padX + w, padY + h, r);
-        ctx.arcTo(padX + w, padY + h, padX, padY + h, r);
-        ctx.arcTo(padX, padY + h, padX, padY, r);
-        ctx.arcTo(padX, padY, padX + w, padY, r);
-        ctx.closePath();
-
-        if (isWinner) {
-          const grad = ctx.createLinearGradient(0, 0, c.width, c.height);
-          grad.addColorStop(0, 'rgba(91, 33, 182, 0.94)');
-          grad.addColorStop(1, 'rgba(217, 119, 6, 0.94)');
-          ctx.fillStyle = grad; ctx.fill();
-          ctx.lineWidth = 6; ctx.strokeStyle = '#fef08a'; ctx.stroke();
-          ctx.font = '700 66px "PingFang SC", sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#fffbeb';
-          ctx.shadowColor = 'rgba(253, 224, 71, 0.85)'; ctx.shadowBlur = 18;
-          ctx.fillText(name.slice(0, 6), c.width / 2, c.height / 2 + 2);
-        } else {
-          ctx.fillStyle = 'rgba(20, 14, 48, 0.68)'; ctx.fill();
-          ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(221, 214, 254, 0.72)'; ctx.stroke();
-          ctx.font = '600 40px "PingFang SC", sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(name.slice(0, 6), c.width / 2, c.height / 2 + 2);
+      function applyThemeColor(hex) {
+        const base = new THREE.Color(hex), hsl = {}; base.getHSL(hsl);
+        const accent = new THREE.Color().setHSL((hsl.h + 0.08) % 1, Math.min(1, hsl.s * 1.05), Math.min(0.88, hsl.l + 0.14));
+        const warmWhite = new THREE.Color('#fff9ef'), tmp = new THREE.Color();
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          const r = (i * 2654435761 % 1000) / 1000;
+          if (r < 0.62) tmp.copy(base).lerp(accent, r / 0.62);
+          else if (r < 0.88) tmp.copy(accent).lerp(warmWhite, ((r - 0.62) / 0.26) * 0.65);
+          else tmp.copy(base).multiplyScalar(0.58);
+          pColors[i * 3] = tmp.r; pColors[i * 3 + 1] = tmp.g; pColors[i * 3 + 2] = tmp.b;
         }
-        const tex = new THREE.CanvasTexture(c);
-        tex.needsUpdate = true;
-        return tex;
+        pGeo.attributes.color.needsUpdate = true;
+        colorTrigger.style.background = hex;
+        colorTrigger.style.boxShadow = '0 0 14px ' + hex;
+        colorPicker.value = hex;
+      }
+      applyThemeColor('#f5d08a');
+
+      const PALETTES = {
+        pink: { fills: ['#ff88c8', '#ff5da2', '#ffc2e2', '#ffb480', '#d88cff', '#ff70b8'], edge: '#3d225c' },
+        blue: { fills: ['#62d4ff', '#3b9eff', '#9cebff', '#8c7dff', '#58b4ff', '#c9f6ff'], edge: '#1e2458' },
+        yellow: { fills: ['#ffd859', '#ffb838', '#fff099', '#ff9678', '#ffe066', '#ffca6b'], edge: '#4f2a52' },
+        prismatic: { fills: ['#ff7eb9', '#ff5b99', '#ffd166', '#ff9f68', '#70c1ff', '#5b7cff', '#b388ff'], edge: '#2e1d52' }
+      };
+
+      function createCrystalWingTexture(paletteKey) {
+        const p = PALETTES[paletteKey], size = 512;
+        const c = document.createElement('canvas'); c.width = size; c.height = size;
+        const ctx = c.getContext('2d');
+        function defineWingPath(context) {
+          context.beginPath();
+          context.moveTo(18, 225);
+          context.bezierCurveTo(60, 125, 195, 36, 445, 28);
+          context.bezierCurveTo(492, 28, 498, 72, 466, 132);
+          context.bezierCurveTo(440, 185, 412, 232, 345, 258);
+          context.bezierCurveTo(405, 282, 424, 345, 376, 400);
+          context.bezierCurveTo(352, 426, 358, 466, 336, 486);
+          context.bezierCurveTo(316, 500, 294, 468, 286, 442);
+          context.bezierCurveTo(260, 456, 212, 476, 162, 452);
+          context.bezierCurveTo(110, 428, 86, 370, 56, 326);
+          context.bezierCurveTo(34, 296, 22, 266, 18, 245);
+          context.closePath();
+        }
+        ctx.save(); defineWingPath(ctx); ctx.clip();
+        const bgGrad = ctx.createRadialGradient(130, 230, 16, 260, 240, 380);
+        bgGrad.addColorStop(0, '#ffffff'); bgGrad.addColorStop(0.28, p.fills[0]);
+        bgGrad.addColorStop(0.68, p.fills[1]); bgGrad.addColorStop(1, p.edge);
+        ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, size, size);
+        const cols = 10, rows = 11, pts = [];
+        let seed = paletteKey.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0) * 13;
+        const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+        for (let r = 0; r <= rows; r++) {
+          pts[r] = [];
+          for (let col = 0; col <= cols; col++) {
+            pts[r][col] = {
+              x: (col / cols) * size + ((col === 0 || col === cols) ? 0 : (rand() - 0.5) * 34),
+              y: (r / rows) * size + ((r === 0 || r === rows) ? 0 : (rand() - 0.5) * 34)
+            };
+          }
+        }
+        const drawFacet = (a, b, d) => {
+          const cx = (a.x + b.x + d.x) / 3, cy = (a.y + b.y + d.y) / 3;
+          const distFromRoot = Math.hypot(cx - 40, cy - 230) / 460;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.closePath();
+          let color = p.fills[Math.floor(rand() * p.fills.length)];
+          if (distFromRoot > 0.78 && rand() > 0.35) color = p.edge;
+          ctx.fillStyle = color; ctx.globalAlpha = distFromRoot < 0.32 ? 0.62 + rand() * 0.25 : 0.76 + rand() * 0.22; ctx.fill();
+          ctx.strokeStyle = rand() > 0.4 ? 'rgba(255,255,255,0.48)' : 'rgba(46,29,82,0.35)';
+          ctx.lineWidth = 1.4; ctx.globalAlpha = 0.85; ctx.stroke();
+        };
+        for (let r = 0; r < rows; r++) {
+          for (let col = 0; col < cols; col++) {
+            const p00 = pts[r][col], p10 = pts[r][col + 1], p01 = pts[r + 1][col], p11 = pts[r + 1][col + 1];
+            if ((r + col) % 2 === 0) { drawFacet(p00, p10, p11); drawFacet(p00, p11, p01); }
+            else { drawFacet(p00, p10, p01); drawFacet(p10, p11, p01); }
+          }
+        }
+        ctx.globalAlpha = 0.92; defineWingPath(ctx); ctx.strokeStyle = p.edge; ctx.lineWidth = 14; ctx.stroke();
+        ctx.restore();
+        return new THREE.CanvasTexture(c);
       }
 
-      function rebuildNameOrb() {
-        nameSprites.forEach((it) => {
-          namesGroup.remove(it.sprite);
-          it.sprite.material.map.dispose();
-          it.sprite.material.dispose();
-        });
-        nameSprites = [];
-        const n = students.length, radius = 1.52;
-        for (let i = 0; i < n; i++) {
-          const y = 1 - (i / Math.max(1, n - 1)) * 2;
-          const rAtY = Math.sqrt(Math.max(0, 1 - y * y));
-          const theta = Math.PI * (3 - Math.sqrt(5)) * i;
-          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: createNameTexture(students[i], false),
-            transparent: true, opacity: 0.96, depthWrite: false
+      const wingTextures = {
+        pink: createCrystalWingTexture('pink'), blue: createCrystalWingTexture('blue'),
+        yellow: createCrystalWingTexture('yellow'), prismatic: createCrystalWingTexture('prismatic')
+      };
+      const rightWingGeo = new THREE.PlaneGeometry(1, 1.04, 4, 4);
+      rightWingGeo.translate(0.5, 0, 0);
+      const wPos = rightWingGeo.attributes.position;
+      for (let i = 0; i < wPos.count; i++) wPos.setZ(i, -Math.sin(wPos.getX(i) * Math.PI) * 0.06);
+      rightWingGeo.computeVertexNormals();
+      const bodyGeo = new THREE.CylinderGeometry(0.026, 0.018, 0.38, 8);
+      const antennaGeoR = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(0.01, 0.19, 0), new THREE.Vector3(0.08, 0.35, 0.04), new THREE.Vector3(0.15, 0.42, 0.06)
+      ), 8, 0.006, 5, false);
+
+      class CrystalButterfly {
+        constructor({ theme, position, scale = 0.6, isHero = false }) {
+          this.theme = theme; this.isHero = isHero; this.group = new THREE.Group(); this.group.position.copy(position);
+          const wingMat = new THREE.MeshBasicMaterial({ map: wingTextures[theme], transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.96 });
+          this.rightWing = new THREE.Mesh(rightWingGeo, wingMat);
+          this.leftWing = new THREE.Mesh(rightWingGeo, wingMat); this.leftWing.scale.x = -1;
+          const bodyMat = new THREE.MeshStandardMaterial({ color: theme === 'blue' ? 0x2a2f6e : 0x3b225c, roughness: 0.3, metalness: 0.45 });
+          const antL = new THREE.Mesh(antennaGeoR, bodyMat); antL.scale.x = -1;
+          this.group.add(this.rightWing, this.leftWing, new THREE.Mesh(bodyGeo, bodyMat), new THREE.Mesh(antennaGeoR, bodyMat), antL);
+          this.targetScale = scale; this.currentScale = 0.02; this.group.scale.setScalar(this.currentScale);
+          this.velocity = new THREE.Vector3((Math.random() - 0.5) * 2.2, 0.5 + Math.random() * 1.4, (Math.random() - 0.5) * 1.1);
+          this.flapPhase = Math.random() * Math.PI * 2; this.flapSpeed = isHero ? 6.2 : 10.5 + Math.random() * 5.0;
+          this.orbitAngle = Math.random() * Math.PI * 2; this.orbitRadius = 0.85 + Math.random() * 1.1;
+          this.orbitSpeed = (Math.random() > 0.5 ? 1 : -1) * (0.7 + Math.random() * 0.65);
+          this.age = 0; this.maxAge = isHero ? 999 : 9.5 + Math.random() * 5.0; this.releasedHero = false;
+          butterflyRoot.add(this.group);
+        }
+        update(dt, gatherTargets) {
+          this.age += dt;
+          this.currentScale += (this.targetScale - this.currentScale) * Math.min(1, dt * 6.5);
+          this.group.scale.setScalar(this.currentScale);
+          this.flapPhase += dt * this.flapSpeed;
+          const flapAngle = Math.sin(this.flapPhase) * (this.isHero && !this.releasedHero ? 0.62 : 0.95) + 0.18;
+          this.rightWing.rotation.y = -flapAngle; this.leftWing.rotation.y = flapAngle;
+          if (this.isHero && !this.releasedHero) {
+            this.group.rotation.x = 0.25 + Math.sin(this.age * 2.1) * 0.08;
+            this.group.rotation.y = Math.sin(this.age * 1.3) * 0.22;
+            return true;
+          }
+          if (gatherTargets.length > 0) {
+            let nearest = gatherTargets[0], minDistSq = this.group.position.distanceToSquared(nearest);
+            for (let i = 1; i < gatherTargets.length; i++) {
+              const dSq = this.group.position.distanceToSquared(gatherTargets[i]);
+              if (dSq < minDistSq) { minDistSq = dSq; nearest = gatherTargets[i]; }
+            }
+            this.orbitAngle += dt * this.orbitSpeed;
+            const desired = new THREE.Vector3(
+              nearest.x + Math.cos(this.orbitAngle) * this.orbitRadius,
+              nearest.y + Math.sin(this.orbitAngle * 1.15) * (this.orbitRadius * 0.72),
+              nearest.z + Math.sin(this.orbitAngle) * 0.65
+            );
+            this.velocity.lerp(desired.sub(this.group.position).multiplyScalar(2.6), Math.min(1, dt * 3.8));
+          } else {
+            this.velocity.x += Math.sin(this.age * 1.9 + this.orbitAngle) * dt * 0.9;
+            this.velocity.y += (0.28 + Math.cos(this.age * 2.2 + this.orbitAngle) * 0.8) * dt;
+            this.velocity.clampLength(0.4, 2.8);
+          }
+          this.group.position.addScaledVector(this.velocity, dt);
+          const dummy = new THREE.Object3D();
+          dummy.position.copy(this.group.position);
+          dummy.lookAt(this.group.position.clone().add(this.velocity));
+          dummy.rotateX(Math.PI * 0.35);
+          this.group.quaternion.slerp(dummy.quaternion, Math.min(1, dt * 4.5));
+          if (this.age > this.maxAge - 1.2 && gatherTargets.length === 0) {
+            this.group.scale.setScalar(this.currentScale * Math.max(0, (this.maxAge - this.age) / 1.2));
+          }
+          if (this.age >= this.maxAge && gatherTargets.length === 0) {
+            butterflyRoot.remove(this.group); this.rightWing.material.dispose(); return false;
+          }
+          return true;
+        }
+      }
+
+      const butterflies = [], MAX_BUTTERFLIES = 42, THEME_CYCLE = ['pink', 'blue', 'yellow'];
+      let themeIdx = 0;
+      const heroButterflies = [null, null];
+      let bfHandStates = [], spawnCooldowns = [0, 0];
+
+      function seedDemoButterflies() {
+        if (butterflies.length > 0) return;
+        for (let i = 0; i < 7; i++) {
+          butterflies.push(new CrystalButterfly({
+            theme: i === 0 ? 'prismatic' : THEME_CYCLE[i % 3],
+            position: new THREE.Vector3((Math.random() - 0.5) * 4.5, (Math.random() - 0.5) * 2.8, (Math.random() - 0.5) * 1.5),
+            scale: i === 0 ? 1.1 : 0.55 + Math.random() * 0.25, isHero: false
           }));
-          sprite.position.set(Math.cos(theta) * rAtY * radius, y * radius, Math.sin(theta) * rAtY * radius);
-          sprite.scale.set(0.92, 0.32, 1);
-          namesGroup.add(sprite);
-          nameSprites.push({ name: students[i], sprite });
         }
       }
-      rebuildNameOrb();
 
-      const winnerSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: createNameTexture(students[0], true),
-        transparent: true, opacity: 0, depthWrite: false
-      }));
-      winnerSprite.position.set(0, 0.1, 1.85);
-      winnerSprite.scale.set(2.45, 0.92, 1);
-      handAnchor.add(winnerSprite);
+      let cameraActive = false, mediaStream = null, handsInstance = null, handsDetected = 0;
+      let targetExpansion = 0.25, currentExpansion = 0.25, targetScale = 1.0, currentScale = 1.0;
+      let isDragging = false, prevPointer = { x: 0, y: 0 };
+      let rotY = 0, rotX = 0.12, targetRotY = 0, targetRotX = 0.12;
 
-      const BURST_N = 90;
-      const bPos = new Float32Array(BURST_N * 3);
-      const bVel = Array.from({ length: BURST_N }, () => new THREE.Vector3());
-      let burstLife = 0;
-      const bGeo = new THREE.BufferGeometry();
-      bGeo.setAttribute('position', new THREE.BufferAttribute(bPos, 3));
-      const bMat = new THREE.PointsMaterial({
-        size: 0.18, map: starTex, color: 0xfde68a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending
+      function switchMode(mode) {
+        currentMode = mode;
+        const isParticles = mode === 'particles';
+        modeParticlesBtn.classList.toggle('active', isParticles);
+        modeButterflyBtn.classList.toggle('active', !isParticles);
+        particleDock.classList.toggle('hidden', !isParticles);
+        butterflyDock.classList.toggle('hidden', isParticles);
+        muteBtn.classList.toggle('hidden', isParticles);
+        particleRoot.visible = isParticles;
+        butterflyRoot.visible = !isParticles;
+        webcamWrap.classList.toggle('fullscreen-bg', !isParticles);
+        if (isParticles) {
+          camera.position.set(0, 0.5, 13.5);
+          statusLabel.textContent = cameraActive ? 'Move your hands apart or together to zoom.' : 'Drag to rotate, or start your camera to use hand gestures.';
+        } else {
+          camera.position.set(0, 0, 10);
+          seedDemoButterflies();
+          statusLabel.textContent = cameraActive ? 'Hold a hand in view to begin.' : 'Turn on your camera to guide the butterflies.';
+        }
+      }
+
+      modeParticlesBtn.addEventListener('click', () => switchMode('particles'));
+      modeButterflyBtn.addEventListener('click', () => switchMode('butterfly'));
+
+      container.addEventListener('pointerdown', (e) => { if (currentMode !== 'particles') return; isDragging = true; prevPointer = { x: e.clientX, y: e.clientY }; });
+      window.addEventListener('pointermove', (e) => {
+        if (!isDragging || currentMode !== 'particles') return;
+        targetRotY += (e.clientX - prevPointer.x) * 0.006;
+        targetRotX = Math.max(-1.1, Math.min(1.1, targetRotX + (e.clientY - prevPointer.y) * 0.005));
+        prevPointer = { x: e.clientX, y: e.clientY };
       });
-      handAnchor.add(new THREE.Points(bGeo, bMat));
+      window.addEventListener('pointerup', () => { isDragging = false; });
+      container.addEventListener('wheel', (e) => {
+        if (currentMode !== 'particles') return;
+        camera.position.z = Math.max(7.5, Math.min(22, camera.position.z + e.deltaY * 0.01));
+      }, { passive: true });
 
-      function triggerBurst() {
-        burstLife = 1.0;
-        for (let i = 0; i < BURST_N; i++) {
-          bPos[i * 3] = 0; bPos[i * 3 + 1] = 0; bPos[i * 3 + 2] = 0.5;
-          const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2;
-          const spd = 1.8 + Math.random() * 3.4;
-          bVel[i].set(Math.sin(phi) * Math.cos(theta) * spd, Math.cos(phi) * spd, Math.sin(phi) * Math.sin(theta) * spd);
-        }
-        bGeo.attributes.position.needsUpdate = true;
-      }
+      shapeBtns.forEach((btn) => btn.addEventListener('click', () => {
+        const shape = btn.getAttribute('data-shape');
+        if (!SHAPE_TARGETS[shape]) return;
+        currentShape = shape;
+        shapeBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      }));
+      colorTrigger.addEventListener('click', (e) => { e.stopPropagation(); colorPopover.classList.toggle('open'); });
+      document.addEventListener('click', (e) => { if (!colorPopover.contains(e.target) && e.target !== colorTrigger) colorPopover.classList.remove('open'); });
+      presetDots.forEach((dot) => dot.addEventListener('click', () => applyThemeColor(dot.getAttribute('data-color'))));
+      colorPicker.addEventListener('input', (e) => applyThemeColor(e.target.value));
+      expansionSlider.addEventListener('input', (e) => {
+        if (cameraActive && handsDetected > 0) return;
+        const v = Number(e.target.value) / 100;
+        targetExpansion = v; targetScale = 0.72 + v * 0.95;
+      });
 
-      // ==================== 坐标换算 ====================
+      const dist2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
       function landmarkToWorld(lm) {
         const vw = window.innerWidth, vh = window.innerHeight;
         const vidW = videoEl.videoWidth || vw, vidH = videoEl.videoHeight || vh;
@@ -622,294 +735,175 @@
         const py = lm.y * dispH - (dispH - vh) / 2;
         const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
         const halfW = halfH * camera.aspect;
-        return new THREE.Vector3(((px / vw) * 2 - 1) * halfW, (-(py / vh) * 2 + 1) * halfH, 0);
+        return new THREE.Vector3(((px / vw) * 2 - 1) * halfW, (-(py / vh) * 2 + 1) * halfH, -(lm.z || 0) * 2.5);
       }
 
-      // ==================== FaceMesh 3D 女巫帽头部追踪 ====================
-      let hatTargetPos = new THREE.Vector3(0, 2, 0);
-      let hatTargetScale = 0.001;
-      let hatCurrentScale = 0.001;
-      let hatTargetRot = new THREE.Euler(0, 0, 0);
-      let faceMissingFrames = 0;
+      function computeHandOpenness(lms) {
+        const wrist = lms[0], palm = dist2D(wrist, lms[9]) || 0.08, tips = [4, 8, 12, 16, 20];
+        let avg = 0; for (let i = 0; i < tips.length; i++) avg += dist2D(lms[tips[i]], wrist) / palm;
+        return Math.max(0, Math.min(1, (avg / tips.length - 0.95) / 1.05));
+      }
 
-      function onFaceResults(results) {
-        const faces = results.multiFaceLandmarks || [];
-        if (faces.length === 0) {
-          faceMissingFrames++;
-          if (faceMissingFrames > 15) hatTargetScale = 0.001;
-          return;
+      function classifyButterflyHand(lms) {
+        const wrist = lms[0], palm = dist2D(wrist, lms[9]) || 0.1;
+        const tips = [8, 12, 16, 20], pips = [6, 10, 14, 18];
+        let ext = 0; for (let i = 0; i < 4; i++) if (dist2D(lms[tips[i]], wrist) > dist2D(lms[pips[i]], wrist) * 1.12) ext++;
+        const thumbOpen = dist2D(lms[4], lms[17]) > palm * 0.95;
+        if (dist2D(lms[4], lms[8]) < palm * 0.34 && ext >= 1) {
+          return { gesture: 'pinch', anchor: { x: (lms[4].x + lms[8].x) * 0.5, y: (lms[4].y + lms[8].y) * 0.5, z: (lms[4].z + lms[8].z) * 0.5 } };
         }
-        faceMissingFrames = 0;
-        const lm = faces[0];
-
-        // 10=额头顶部，152=下巴，234=左太阳穴，454=右太阳穴，1=鼻尖
-        const topWorld = landmarkToWorld(lm[10]);
-        const chinWorld = landmarkToWorld(lm[152]);
-        const leftWorld = landmarkToWorld(lm[234]);
-        const rightWorld = landmarkToWorld(lm[454]);
-        const noseWorld = landmarkToWorld(lm[1]);
-
-        const faceWidth = leftWorld.distanceTo(rightWorld);
-        const faceHeight = topWorld.distanceTo(chinWorld);
-
-        // 计算头部歪头角度（roll）
-        const dx = rightWorld.x - leftWorld.x;
-        const dy = rightWorld.y - leftWorld.y;
-        // 因为画面水平镜像，leftWorld 在画面右侧、rightWorld 在画面左侧
-        const roll = Math.atan2(leftWorld.y - rightWorld.y, leftWorld.x - rightWorld.x);
-
-        // 计算左右转头（yaw）与抬头低头（pitch）
-        const faceCenterX = (leftWorld.x + rightWorld.x) * 0.5;
-        const yaw = THREE.MathUtils.clamp(((noseWorld.x - faceCenterX) / (faceWidth * 0.5 || 1)) * 0.85, -0.7, 0.7);
-        const faceCenterY = (topWorld.y + chinWorld.y) * 0.5;
-        const pitch = THREE.MathUtils.clamp(((noseWorld.y - faceCenterY) / (faceHeight * 0.5 || 1) + 0.06) * 0.55, -0.45, 0.45);
-
-        // 沿着头部向上方向将帽檐自然放在额头上方发际线处
-        const upX = -Math.sin(roll);
-        const upY = Math.cos(roll);
-        hatTargetPos.set(
-          topWorld.x + upX * (faceHeight * 0.05),
-          topWorld.y + upY * (faceHeight * 0.05),
-          0.1
-        );
-        hatTargetScale = Math.max(0.45, faceWidth * 0.62);
-        hatTargetRot.set(-pitch, yaw, roll);
-      }
-
-      // ==================== Hands 3D 关节手势识别（支持水平托掌） ====================
-      function fingerStraightness3D(lms, mcp, pip, tip) {
-        const v1x = lms[pip].x - lms[mcp].x, v1y = lms[pip].y - lms[mcp].y, v1z = (lms[pip].z - lms[mcp].z) * 1.2;
-        const v2x = lms[tip].x - lms[pip].x, v2y = lms[tip].y - lms[pip].y, v2z = (lms[tip].z - lms[pip].z) * 1.2;
-        return (v1x * v2x + v1y * v2y + v1z * v2z) / ((Math.hypot(v1x, v1y, v1z) || 1e-5) * (Math.hypot(v2x, v2y, v2z) || 1e-5));
-      }
-
-      function classifyHand3D(lms) {
-        const vals = [
-          fingerStraightness3D(lms, 5, 6, 8),
-          fingerStraightness3D(lms, 9, 10, 12),
-          fingerStraightness3D(lms, 13, 14, 16),
-          fingerStraightness3D(lms, 17, 18, 20)
-        ];
-        let openC = 0, fistC = 0;
-        for (let i = 0; i < 4; i++) {
-          if (vals[i] > 0.45) openC++;
-          if (vals[i] < 0.05) fistC++;
-        }
-        const palm = { x: (lms[0].x + lms[9].x) * 0.5, y: (lms[0].y + lms[9].y) * 0.5, z: (lms[0].z + lms[9].z) * 0.5 };
-        if (openC >= 3) return { gesture: 'open', anchor: palm };
-        if (fistC >= 3) return { gesture: 'fist', anchor: palm };
-        return { gesture: 'neutral', anchor: palm };
-      }
-
-      let state = 'hidden';
-      let handTargetPos = new THREE.Vector3(0, 0, 0);
-      let handTargetScale = 0.001, handCurrentScale = 0.001;
-      let spinSpeedY = 0.4, spinSpeedX = 0.1;
-      let winnerOpacityTarget = 0;
-      let stableGesture = 'none', stableFrames = 0, handMissingFrames = 0;
-
-      function pickStudent() {
-        let pool = noRepeat ? students.filter((n) => !pickedList.includes(n)) : students.slice();
-        if (pool.length === 0) { pickedList = []; pool = students.slice(); }
-        const chosen = pool[Math.floor(Math.random() * pool.length)];
-        if (noRepeat) pickedList.push(chosen);
-        updateCounter();
-
-        winnerSprite.material.map.dispose();
-        winnerSprite.material.map = createNameTexture(chosen, true);
-        winnerSprite.material.needsUpdate = true;
-        winnerOpacityTarget = 1;
-        triggerBurst();
-        magicAudio.playReveal();
-
-        statusDot.className = 'dot locked';
-        statusText.textContent = '✊ 魔法选中：' + chosen;
+        if (ext >= 3 && (ext === 4 || thumbOpen)) return { gesture: 'open', anchor: lms[9] };
+        if (ext <= 1) return { gesture: 'fist', anchor: lms[9] };
+        return { gesture: 'neutral', anchor: lms[9] };
       }
 
       function onHandsResults(results) {
         const multi = results.multiHandLandmarks || [];
-        if (multi.length === 0) {
-          handMissingFrames++;
-          if (handMissingFrames > 16 && state !== 'locked') {
-            handTargetScale = 0.001;
-            statusDot.className = 'dot';
-            statusText.textContent = '请摊开手掌召唤魔法球';
+        handsDetected = multi.length;
+        if (currentMode === 'particles') {
+          if (handsDetected === 0) {
+            statusDot.className = 'status-dot active';
+            statusLabel.textContent = 'Hold your hands in view to begin.';
+            const fb = Number(expansionSlider.value) / 100;
+            targetExpansion = fb; targetScale = 0.72 + fb * 0.95;
+            return;
           }
-          return;
-        }
-        handMissingFrames = 0;
-
-        const info = classifyHand3D(multi[0]);
-        const wp = landmarkToWorld(info.anchor);
-        handTargetPos.set(wp.x, wp.y + 1.15, 0.2);
-
-        if (info.gesture === stableGesture && info.gesture !== 'neutral') stableFrames++;
-        else { stableGesture = info.gesture; stableFrames = 1; }
-
-        if (stableFrames >= 3) {
-          if (info.gesture === 'open') {
-            if (state !== 'spinning') {
-              state = 'spinning';
-              winnerOpacityTarget = 0;
-              statusDot.className = 'dot spinning';
-              statusText.textContent = '✋ 掌心魔法球旋转中 · 握拳定格点名';
-            }
-            handTargetScale = 1.0;
-          } else if (info.gesture === 'fist') {
-            if (state === 'spinning') {
-              state = 'locked';
-              pickStudent();
-            }
-            if (state === 'locked') handTargetScale = 1.05;
+          statusDot.className = 'status-dot tracking';
+          let openSum = 0; for (let i = 0; i < handsDetected; i++) openSum += computeHandOpenness(multi[i]);
+          const avgOpen = openSum / handsDetected;
+          if (handsDetected >= 2) {
+            const spread = Math.max(0, Math.min(1, (dist2D(multi[0][9], multi[1][9]) - 0.14) / 0.56));
+            targetExpansion = Math.max(0, Math.min(1, avgOpen * 0.55 + spread * 0.45));
+            targetScale = 0.58 + spread * 1.15 + avgOpen * 0.35;
+            statusLabel.textContent = 'Two hands detected · Move apart to expand or together to shrink.';
+          } else {
+            targetExpansion = avgOpen; targetScale = 0.68 + avgOpen * 0.85;
+            statusLabel.textContent = 'One hand detected · Open your palm to expand or make a fist to shrink.';
+          }
+        } else {
+          bfHandStates = multi.map((lms) => { const info = classifyButterflyHand(lms); return { gesture: info.gesture, worldPos: landmarkToWorld(info.anchor) }; });
+          if (bfHandStates.length === 0) { statusDot.className = 'status-dot active'; statusLabel.textContent = 'Hold a hand in view to begin.'; }
+          else {
+            statusDot.className = 'status-dot tracking';
+            const labels = { open: 'Open palm · Releasing butterflies', fist: 'Fist · Gathering butterflies', pinch: 'Pinch · Giant butterfly', neutral: 'Hand detected' };
+            statusLabel.textContent = bfHandStates.map((h) => labels[h.gesture]).join('  |  ');
           }
         }
       }
 
-      // 名单弹窗
-      rosterBtn.addEventListener('click', () => {
-        rosterTextarea.value = students.join('\n');
-        noRepeatCheck.checked = noRepeat;
-        updateCounter();
-        rosterModal.classList.add('open');
-      });
-      closeModalBtn.addEventListener('click', () => rosterModal.classList.remove('open'));
-      resetPickedBtn.addEventListener('click', () => { pickedList = []; updateCounter(); });
-      saveRosterBtn.addEventListener('click', () => {
-        const list = rosterTextarea.value.split(/[\n,，、\s]+/).map((s) => s.trim()).filter(Boolean);
-        if (!list.length) return;
-        students = list;
-        noRepeat = noRepeatCheck.checked;
-        pickedList = pickedList.filter((n) => students.includes(n));
-        try { localStorage.setItem('magic_rollcall_students', JSON.stringify(students)); } catch (_) {}
-        rebuildNameOrb();
-        updateCounter();
-        rosterModal.classList.remove('open');
-      });
-
-      // ==================== 动画主循环 ====================
-      let lastTime = performance.now(), elapsed = 0;
-      function animate(now) {
-        requestAnimationFrame(animate);
-        const dt = Math.min(0.05, (now - lastTime) / 1000);
-        lastTime = now;
-        elapsed += dt;
-
-        // 1. 3D 女巫帽丝滑贴合头部
-        hatAnchor.position.lerp(hatTargetPos, Math.min(1, dt * 14));
-        hatCurrentScale += (hatTargetScale - hatCurrentScale) * Math.min(1, dt * 12);
-        hatAnchor.scale.setScalar(Math.max(0.001, hatCurrentScale));
-        hatAnchor.rotation.x += (hatTargetRot.x - hatAnchor.rotation.x) * Math.min(1, dt * 12);
-        hatAnchor.rotation.y += (hatTargetRot.y - hatAnchor.rotation.y) * Math.min(1, dt * 12);
-        hatAnchor.rotation.z += (hatTargetRot.z - hatAnchor.rotation.z) * Math.min(1, dt * 12);
-        hatTipGlow.material.opacity = 0.65 + Math.sin(elapsed * 4.5) * 0.3;
-
-        // 2. 掌心魔法球丝滑跟随与旋转
-        handAnchor.position.lerp(handTargetPos, Math.min(1, dt * 12));
-        handCurrentScale += (handTargetScale - handCurrentScale) * Math.min(1, dt * 8);
-        handAnchor.scale.setScalar(Math.max(0.001, handCurrentScale));
-
-        const targetY = state === 'spinning' ? 5.2 : 0.14;
-        const targetX = state === 'spinning' ? 1.5 : 0.04;
-        spinSpeedY += (targetY - spinSpeedY) * Math.min(1, dt * 5.5);
-        spinSpeedX += (targetX - spinSpeedX) * Math.min(1, dt * 5.5);
-        spinGroup.rotation.y += spinSpeedY * dt;
-        spinGroup.rotation.x += spinSpeedX * dt;
-        ring1.rotation.z += (0.5 + spinSpeedY * 0.45) * dt;
-        ring2.rotation.z -= (0.35 + spinSpeedY * 0.35) * dt;
-
-        const othersOpacity = state === 'locked' ? 0.2 : 0.96;
-        for (let i = 0; i < nameSprites.length; i++) {
-          nameSprites[i].sprite.material.opacity += (othersOpacity - nameSprites[i].sprite.material.opacity) * Math.min(1, dt * 7);
-        }
-        winnerSprite.material.opacity += (winnerOpacityTarget - winnerSprite.material.opacity) * Math.min(1, dt * 9);
-
-        if (state === 'spinning' && handCurrentScale > 0.3) magicAudio.playTick();
-
-        // 3. 选中爆发粒子
-        if (burstLife > 0) {
-          burstLife = Math.max(0, burstLife - dt * 1.25);
-          bMat.opacity = burstLife;
-          for (let i = 0; i < BURST_N; i++) {
-            bPos[i * 3] += bVel[i].x * dt;
-            bPos[i * 3 + 1] += bVel[i].y * dt;
-            bPos[i * 3 + 2] += bVel[i].z * dt;
-            bVel[i].multiplyScalar(0.96);
-          }
-          bGeo.attributes.position.needsUpdate = true;
-        } else bMat.opacity = 0;
-
-        // 4. 背景飘浮紫金魔法星尘
-        for (let i = 0; i < AMBIENT_N; i++) {
-          ambPos[i * 3 + 1] += ambSpeed[i] * dt;
-          ambPos[i * 3] += Math.sin(elapsed * 0.8 + i) * 0.08 * dt;
-          if (ambPos[i * 3 + 1] > 4.5) ambPos[i * 3 + 1] = -4.5;
-        }
-        ambGeo.attributes.position.needsUpdate = true;
-
-        renderer.render(scene, camera);
+      function stopCamera() {
+        cameraActive = false; handsDetected = 0; bfHandStates = [];
+        if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+        videoEl.srcObject = null; webcamWrap.classList.remove('visible');
+        camBtn.classList.remove('on'); camBtnText.textContent = 'Start camera';
+        statusDot.className = 'status-dot';
+        statusLabel.textContent = currentMode === 'particles' ? 'Drag to rotate, or start your camera to use hand gestures.' : 'Turn on your camera to guide the butterflies.';
+        manualBar.style.opacity = '1';
       }
 
-      // ==================== 启动摄像头 + 双模型交替流畅识别 ====================
-      async function startExperience() {
-        startBtn.disabled = true;
-        startBtn.textContent = '正在唤醒魔法...';
-        errorMsg.textContent = '';
+      async function toggleCamera() {
+        sound.init();
+        if (cameraActive) { stopCamera(); return; }
+        camBtn.disabled = true; camBtnText.textContent = 'Starting…';
         try {
-          magicAudio.init();
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error('请通过 http://localhost 或 HTTPS 网址打开以使用摄像头');
-          }
-          if (typeof window.Hands === 'undefined' || typeof window.FaceMesh === 'undefined') {
-            throw new Error('AI 视觉模型未加载完成，请检查网络后重试');
-          }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Open this page over HTTPS to use your camera.');
+          if (typeof window.Hands === 'undefined') throw new Error('Hand tracking could not load. Check your connection and reload.');
           let stream;
           try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
           catch (_) { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
-          videoEl.srcObject = stream;
-          await videoEl.play();
-
-          const hands = new window.Hands({ locateFile: (file) => 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + file });
-          hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.65, minTrackingConfidence: 0.6 });
-          hands.onResults(onHandsResults);
-
-          const faceMesh = new window.FaceMesh({ locateFile: (file) => 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/' + file });
-          faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.55, minTrackingConfidence: 0.55 });
-          faceMesh.onResults(onFaceResults);
-
-          // 交替送帧给手势与人脸模型，既流畅又省电
+          mediaStream = stream; videoEl.srcObject = stream; await videoEl.play();
+          if (!handsInstance) {
+            handsInstance = new window.Hands({ locateFile: (file) => 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + file });
+            handsInstance.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.62, minTrackingConfidence: 0.58 });
+            handsInstance.onResults(onHandsResults);
+          }
+          cameraActive = true; webcamWrap.classList.add('visible');
+          camBtn.classList.add('on'); camBtnText.textContent = 'Stop camera';
+          statusDot.className = 'status-dot active'; manualBar.style.opacity = '0.45';
           let busy = false;
-          let toggle = 0;
           async function detectLoop() {
-            if (videoEl.readyState >= 2 && !busy) {
-              busy = true;
-              try {
-                if (toggle % 2 === 0) await hands.send({ image: videoEl });
-                else if (showHat) await faceMesh.send({ image: videoEl });
-                toggle++;
-              } catch (_) {}
-              busy = false;
-            }
+            if (!cameraActive) return;
+            if (videoEl.readyState >= 2 && !busy) { busy = true; try { await handsInstance.send({ image: videoEl }); } catch (_) {} busy = false; }
             requestAnimationFrame(detectLoop);
           }
           detectLoop();
-
-          startOverlay.classList.add('hidden');
-          hudEl.classList.add('visible');
-          hintBar.classList.add('visible');
         } catch (err) {
-          startBtn.disabled = false;
-          startBtn.textContent = '重试开启魔法摄像头';
-          errorMsg.textContent = err && err.message ? err.message : '无法打开摄像头，请检查权限';
-        }
+          showToast(err && err.message ? err.message : 'Camera unavailable. Check your browser permissions.');
+          stopCamera();
+        } finally { camBtn.disabled = false; }
       }
 
-      startBtn.addEventListener('click', startExperience);
+      camBtn.addEventListener('click', toggleCamera);
+
+      let lastTime = performance.now(), elapsed = 0;
+      function animate(now) {
+        requestAnimationFrame(animate);
+        const dt = Math.min(0.05, (now - lastTime) / 1000); lastTime = now; elapsed += dt;
+
+        if (currentMode === 'particles') {
+          currentExpansion += (targetExpansion - currentExpansion) * Math.min(1, dt * 6.5);
+          currentScale += (targetScale - currentScale) * Math.min(1, dt * 5.8);
+          if (!isDragging) targetRotY += dt * (currentShape === 'fireworks' ? 0.14 : 0.22);
+          rotY += (targetRotY - rotY) * Math.min(1, dt * 7);
+          rotX += (targetRotX - rotX) * Math.min(1, dt * 7);
+          particleCloud.rotation.y = rotY; particleCloud.rotation.x = rotX;
+          pMat.size = 0.125 + currentExpansion * 0.065;
+
+          const targetArr = SHAPE_TARGETS[currentShape], posArr = pGeo.attributes.position.array;
+          const morphRate = Math.min(1, dt * 4.8), explodeFactor = Math.pow(currentExpansion, 1.35) * 3.1;
+          const fwPulse = currentShape === 'fireworks' ? (0.88 + Math.sin(elapsed * 1.9) * 0.18) : 1.0;
+
+          for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3, shimmer = Math.sin(elapsed * 1.8 + pPhases[i]) * (0.045 + currentExpansion * 0.11);
+            posArr[i3] += (targetArr[i3] * currentScale * fwPulse + pScatter[i3] * explodeFactor + shimmer - posArr[i3]) * morphRate;
+            posArr[i3 + 1] += (targetArr[i3 + 1] * currentScale * fwPulse + pScatter[i3 + 1] * explodeFactor + Math.cos(elapsed * 1.5 + pPhases[i]) * 0.04 - posArr[i3 + 1]) * morphRate;
+            posArr[i3 + 2] += (targetArr[i3 + 2] * currentScale * fwPulse + pScatter[i3 + 2] * explodeFactor - posArr[i3 + 2]) * morphRate;
+          }
+          pGeo.attributes.position.needsUpdate = true;
+        } else {
+          const gatherTargets = [], activePinchSlots = new Set();
+          bfHandStates.forEach((hand, idx) => {
+            if (idx > 1) return;
+            if (hand.gesture === 'open') {
+              spawnCooldowns[idx] -= dt;
+              if (spawnCooldowns[idx] <= 0 && butterflies.length < MAX_BUTTERFLIES) {
+                spawnCooldowns[idx] = 0.18;
+                const theme = THEME_CYCLE[themeIdx++ % THEME_CYCLE.length];
+                butterflies.push(new CrystalButterfly({
+                  theme, position: hand.worldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5)),
+                  scale: 0.45 + Math.random() * 0.32, isHero: false
+                }));
+                sound.playFlutterNote();
+              }
+            } else if (hand.gesture === 'fist') {
+              gatherTargets.push(hand.worldPos);
+              if (butterflies.length > 0) sound.playGatherChime();
+            } else if (hand.gesture === 'pinch') {
+              activePinchSlots.add(idx);
+              if (!heroButterflies[idx]) {
+                const hero = new CrystalButterfly({ theme: 'prismatic', position: hand.worldPos.clone(), scale: 1.38, isHero: true });
+                heroButterflies[idx] = hero; butterflies.push(hero); sound.playPinchBloom();
+              } else heroButterflies[idx].group.position.lerp(hand.worldPos.clone().add(new THREE.Vector3(0, 0.22, 0.35)), Math.min(1, dt * 10));
+            }
+          });
+          for (let i = 0; i < 2; i++) {
+            if (heroButterflies[i] && !activePinchSlots.has(i)) {
+              heroButterflies[i].releasedHero = true; heroButterflies[i].age = 0; heroButterflies[i].maxAge = 8.5;
+              heroButterflies[i].velocity.set((Math.random() - 0.5) * 1.4, 1.15, 0.2); heroButterflies[i] = null;
+            }
+          }
+          if (!cameraActive && butterflies.length === 0) seedDemoButterflies();
+          for (let i = butterflies.length - 1; i >= 0; i--) if (!butterflies[i].update(dt, gatherTargets)) butterflies.splice(i, 1);
+        }
+        renderer.render(scene, camera);
+      }
+
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
-
+      switchMode('butterfly');
       requestAnimationFrame(animate);
     })();
   </script>
