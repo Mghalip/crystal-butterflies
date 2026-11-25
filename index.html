@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crystal Butterflies</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: radial-gradient(circle at 50% 48%, #10111a 0%, #050508 72%, #020204 100%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      color: #f3f4f6; user-select: none; -webkit-font-smoothing: antialiased;
+    }
+
+    #webcam-wrap {
+      position: fixed; top: 64px; right: 16px; z-index: 8;
+      width: 148px; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(8, 9, 14, 0.8);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    #webcam-wrap.visible { opacity: 1; }
+    #webcam-wrap.fullscreen-bg {
+      top: 0; right: 0; inset: 0; width: 100%; height: 100%;
+      aspect-ratio: auto; border-radius: 0; border: none; box-shadow: none; z-index: 1;
+    }
+    #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+
+    #canvas-container { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2;  }
+
+    .top-bar {
+      position: fixed; top: 14px; left: 14px; right: 14px; z-index: 12;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; pointer-events: none; flex-wrap: wrap;
+    }
+    .status-group {
+      display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
+      background: rgba(15, 16, 24, 0.58); border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      font-size: 12px; color: rgba(255, 255, 255, 0.84); pointer-events: auto;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; flex-shrink: 0; transition: all 0.25s ease; }
+    .status-dot.active { background: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.85); }
+    .status-dot.tracking { background: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.85); }
+
+    .top-actions { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; }
+    .cam-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.1);
+      color: #fff; font-size: 12px; font-weight: 500; cursor: pointer;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: all 0.2s ease; white-space: nowrap;
+    }
+    .cam-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.36); }
+    .cam-btn.on { background: rgba(56, 189, 248, 0.22); border-color: rgba(56, 189, 248, 0.55); color: #e0f2fe; }
+    .cam-btn:disabled { opacity: 0.55; cursor: wait; }
+
+    .icon-btn {
+      width: 33px; height: 33px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(15, 16, 24, 0.52); color: #fff; cursor: pointer;
+      display: grid; place-items: center; font-size: 14px; backdrop-filter: blur(12px);
+    }
+    .icon-btn:hover { background: rgba(255, 255, 255, 0.18); }
+    .hidden { display: none !important; }
+
+    .dock-wrapper {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 12;
+      display: flex; flex-direction: column; align-items: center; gap: 9px; max-width: calc(100vw - 20px);
+    }
+    .butterfly-hint {
+      display: flex; align-items: center; gap: 14px; padding: 8px 18px; border-radius: 999px;
+      background: rgba(14, 14, 24, 0.45); border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(12px); font-size: 12px; color: rgba(255, 255, 255, 0.85); white-space: nowrap;
+    }
+
+    #toast {
+      position: fixed; top: 66px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 20;
+      padding: 8px 16px; border-radius: 999px; background: rgba(24, 24, 36, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.16); color: #fde68a; font-size: 12px;
+      opacity: 0; pointer-events: none; transition: all 0.25s ease; max-width: 90vw; text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 640px) {
+      .dock-wrapper { width: 95vw; }
+      .butterfly-hint { justify-content: center; flex-wrap: wrap; gap: 5px 12px; border-radius: 14px; }
+      .status-group { order: 3; width: 100%; justify-content: center; }
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="webcam-wrap" class="fullscreen-bg">
+    <video id="webcam" autoplay playsinline muted></video>
+  </div>
+  <div id="canvas-container"></div>
+
+  <div class="top-bar">
+    <div class="status-group">
+      <span id="status-dot" class="status-dot"></span>
+      <span id="status-label">Turn on your camera to guide the butterflies.</span>
+    </div>
+
+    <div class="top-actions">
+      <button id="mute-btn" class="icon-btn" type="button" title="Toggle butterfly sounds">🔊</button>
+      <button id="cam-btn" class="cam-btn" type="button">
+        <span>📷</span>
+        <span id="cam-btn-text">Start camera</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="butterfly-dock" class="dock-wrapper">
+    <div class="butterfly-hint">
+      <span>✋ Open palm to release</span>
+      <span>✊ Make a fist to gather</span>
+      <span>👌 Pinch to summon a giant butterfly</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const container = document.getElementById('canvas-container');
+      const webcamWrap = document.getElementById('webcam-wrap');
+      const videoEl = document.getElementById('webcam');
+      const statusDot = document.getElementById('status-dot');
+      const statusLabel = document.getElementById('status-label');
+      const camBtn = document.getElementById('cam-btn');
+      const camBtnText = document.getElementById('cam-btn-text');
+      const muteBtn = document.getElementById('mute-btn');
+      const toastEl = document.getElementById('toast');
+      let toastTimer = null;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3600);
+      }
+
+      class SoundEngine {
+        constructor() {
+          this.ctx = null; this.masterGain = null; this.delayNode = null;
+          this.muted = false; this.lastNoteTime = 0; this.lastGatherTime = 0;
+          this.scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98];
+        }
+        init() {
+          if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          this.ctx = new AudioCtx();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = 0.28;
+          this.masterGain.connect(this.ctx.destination);
+          this.delayNode = this.ctx.createDelay(1.0);
+          this.delayNode.delayTime.value = 0.28;
+          const feedback = this.ctx.createGain(); feedback.gain.value = 0.32;
+          const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 2600;
+          this.delayNode.connect(filter); filter.connect(feedback); feedback.connect(this.delayNode);
+          filter.connect(this.masterGain);
+        }
+        setMuted(m) {
+          this.muted = m;
+          if (this.masterGain && this.ctx) this.masterGain.gain.setTargetAtTime(m ? 0 : 0.28, this.ctx.currentTime, 0.05);
+        }
+        playFlutterNote() {
+          if (!this.ctx || this.muted) return;
+          const now = this.ctx.currentTime;
+          if (now - this.lastNoteTime < 0.15) return;
+          this.lastNoteTime = now;
+          const freq = this.scale[Math.floor(Math.random() * this.scale.length)];
+          const osc1 = this.ctx.createOscillator(), osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain(), osc2Gain = this.ctx.createGain();
+          osc1.type = 'sine'; osc1.frequency.setValueAtTime(freq, now);
+          osc2.type = 'triangle'; osc2.frequency.setValueAtTime(freq * 2, now);
+          osc2Gain.gain.value = 0.16;
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.16, now + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.15);
+          osc1.connect(gain); osc2.connect(osc2Gain); osc2Gain.connect(gain);
+          gain.connect(this.masterGain); gain.connect(this.delayNode);
+          osc1.start(now); osc2.start(now); osc1.stop(now + 1.2); osc2.stop(now + 1.2);
+        }
+        playGatherChime() {
+          if (!this.ctx || this.muted) return;
+          const now = this.ctx.currentTime;
+          if (now - this.lastGatherTime < 0.85) return;
+          this.lastGatherTime = now;
+          [392.0, 523.25, 659.25].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+            gain.gain.setValueAtTime(0.0001, now + idx * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.08, now + idx * 0.06 + 0.18);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.06 + 1.4);
+            osc.connect(gain); gain.connect(this.masterGain); gain.connect(this.delayNode);
+            osc.start(now + idx * 0.06); osc.stop(now + idx * 0.06 + 1.45);
+          });
+        }
+        playPinchBloom() {
+          if (!this.ctx || this.muted) return;
+          const now = this.ctx.currentTime;
+          [659.25, 783.99, 1046.5, 1318.51, 1567.98].forEach((freq, i) => {
+            const t = now + i * 0.055;
+            const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.14, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+            osc.connect(gain); gain.connect(this.masterGain); gain.connect(this.delayNode);
+            osc.start(t); osc.stop(t + 1.55);
+          });
+        }
+      }
+
+      const sound = new SoundEngine();
+      muteBtn.addEventListener('click', () => {
+        sound.init();
+        sound.setMuted(!sound.muted);
+        muteBtn.textContent = sound.muted ? '🔇' : '🔊';
+      });
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 120);
+      camera.position.set(0, 0, 10);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+      const dirLight = new THREE.DirectionalLight(0xfff4ff, 1.0);
+      dirLight.position.set(3, 5, 8);
+      scene.add(dirLight);
+
+      const butterflyRoot = new THREE.Group();
+      scene.add(butterflyRoot);
+      const PALETTES = {
+        pink: { fills: ['#ff88c8', '#ff5da2', '#ffc2e2', '#ffb480', '#d88cff', '#ff70b8'], edge: '#3d225c' },
+        blue: { fills: ['#62d4ff', '#3b9eff', '#9cebff', '#8c7dff', '#58b4ff', '#c9f6ff'], edge: '#1e2458' },
+        yellow: { fills: ['#ffd859', '#ffb838', '#fff099', '#ff9678', '#ffe066', '#ffca6b'], edge: '#4f2a52' },
+        prismatic: { fills: ['#ff7eb9', '#ff5b99', '#ffd166', '#ff9f68', '#70c1ff', '#5b7cff', '#b388ff'], edge: '#2e1d52' }
+      };
+
+      function createCrystalWingTexture(paletteKey) {
+        const p = PALETTES[paletteKey], size = 512;
+        const c = document.createElement('canvas'); c.width = size; c.height = size;
+        const ctx = c.getContext('2d');
+        function defineWingPath(context) {
+          context.beginPath();
+          context.moveTo(18, 225);
+          context.bezierCurveTo(60, 125, 195, 36, 445, 28);
+          context.bezierCurveTo(492, 28, 498, 72, 466, 132);
+          context.bezierCurveTo(440, 185, 412, 232, 345, 258);
+          context.bezierCurveTo(405, 282, 424, 345, 376, 400);
+          context.bezierCurveTo(352, 426, 358, 466, 336, 486);
+          context.bezierCurveTo(316, 500, 294, 468, 286, 442);
+          context.bezierCurveTo(260, 456, 212, 476, 162, 452);
+          context.bezierCurveTo(110, 428, 86, 370, 56, 326);
+          context.bezierCurveTo(34, 296, 22, 266, 18, 245);
+          context.closePath();
+        }
+        ctx.save(); defineWingPath(ctx); ctx.clip();
+        const bgGrad = ctx.createRadialGradient(130, 230, 16, 260, 240, 380);
+        bgGrad.addColorStop(0, '#ffffff'); bgGrad.addColorStop(0.28, p.fills[0]);
+        bgGrad.addColorStop(0.68, p.fills[1]); bgGrad.addColorStop(1, p.edge);
+        ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, size, size);
+        const cols = 10, rows = 11, pts = [];
+        let seed = paletteKey.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0) * 13;
+        const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+        for (let r = 0; r <= rows; r++) {
+          pts[r] = [];
+          for (let col = 0; col <= cols; col++) {
+            pts[r][col] = {
+              x: (col / cols) * size + ((col === 0 || col === cols) ? 0 : (rand() - 0.5) * 34),
+              y: (r / rows) * size + ((r === 0 || r === rows) ? 0 : (rand() - 0.5) * 34)
+            };
+          }
+        }
+        const drawFacet = (a, b, d) => {
+          const cx = (a.x + b.x + d.x) / 3, cy = (a.y + b.y + d.y) / 3;
+          const distFromRoot = Math.hypot(cx - 40, cy - 230) / 460;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.closePath();
+          let color = p.fills[Math.floor(rand() * p.fills.length)];
+          if (distFromRoot > 0.78 && rand() > 0.35) color = p.edge;
+          ctx.fillStyle = color; ctx.globalAlpha = distFromRoot < 0.32 ? 0.62 + rand() * 0.25 : 0.76 + rand() * 0.22; ctx.fill();
+          ctx.strokeStyle = rand() > 0.4 ? 'rgba(255,255,255,0.48)' : 'rgba(46,29,82,0.35)';
+          ctx.lineWidth = 1.4; ctx.globalAlpha = 0.85; ctx.stroke();
+        };
+        for (let r = 0; r < rows; r++) {
+          for (let col = 0; col < cols; col++) {
+            const p00 = pts[r][col], p10 = pts[r][col + 1], p01 = pts[r + 1][col], p11 = pts[r + 1][col + 1];
+            if ((r + col) % 2 === 0) { drawFacet(p00, p10, p11); drawFacet(p00, p11, p01); }
+            else { drawFacet(p00, p10, p01); drawFacet(p10, p11, p01); }
+          }
+        }
+        ctx.globalAlpha = 0.92; defineWingPath(ctx); ctx.strokeStyle = p.edge; ctx.lineWidth = 14; ctx.stroke();
+        ctx.restore();
+        return new THREE.CanvasTexture(c);
+      }
+
+      const wingTextures = {
+        pink: createCrystalWingTexture('pink'), blue: createCrystalWingTexture('blue'),
+        yellow: createCrystalWingTexture('yellow'), prismatic: createCrystalWingTexture('prismatic')
+      };
+      const rightWingGeo = new THREE.PlaneGeometry(1, 1.04, 4, 4);
+      rightWingGeo.translate(0.5, 0, 0);
+      const wPos = rightWingGeo.attributes.position;
+      for (let i = 0; i < wPos.count; i++) wPos.setZ(i, -Math.sin(wPos.getX(i) * Math.PI) * 0.06);
+      rightWingGeo.computeVertexNormals();
+      const bodyGeo = new THREE.CylinderGeometry(0.026, 0.018, 0.38, 8);
+      const antennaGeoR = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(0.01, 0.19, 0), new THREE.Vector3(0.08, 0.35, 0.04), new THREE.Vector3(0.15, 0.42, 0.06)
+      ), 8, 0.006, 5, false);
+
+      class CrystalButterfly {
+        constructor({ theme, position, scale = 0.6, isHero = false }) {
+          this.theme = theme; this.isHero = isHero; this.group = new THREE.Group(); this.group.position.copy(position);
+          const wingMat = new THREE.MeshBasicMaterial({ map: wingTextures[theme], transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.96 });
+          this.rightWing = new THREE.Mesh(rightWingGeo, wingMat);
+          this.leftWing = new THREE.Mesh(rightWingGeo, wingMat); this.leftWing.scale.x = -1;
+          const bodyMat = new THREE.MeshStandardMaterial({ color: theme === 'blue' ? 0x2a2f6e : 0x3b225c, roughness: 0.3, metalness: 0.45 });
+          const antL = new THREE.Mesh(antennaGeoR, bodyMat); antL.scale.x = -1;
+          this.group.add(this.rightWing, this.leftWing, new THREE.Mesh(bodyGeo, bodyMat), new THREE.Mesh(antennaGeoR, bodyMat), antL);
+          this.targetScale = scale; this.currentScale = 0.02; this.group.scale.setScalar(this.currentScale);
+          this.velocity = new THREE.Vector3((Math.random() - 0.5) * 2.2, 0.5 + Math.random() * 1.4, (Math.random() - 0.5) * 1.1);
+          this.flapPhase = Math.random() * Math.PI * 2; this.flapSpeed = isHero ? 6.2 : 10.5 + Math.random() * 5.0;
+          this.orbitAngle = Math.random() * Math.PI * 2; this.orbitRadius = 0.85 + Math.random() * 1.1;
+          this.orbitSpeed = (Math.random() > 0.5 ? 1 : -1) * (0.7 + Math.random() * 0.65);
+          this.age = 0; this.maxAge = isHero ? 999 : 9.5 + Math.random() * 5.0; this.releasedHero = false;
+          butterflyRoot.add(this.group);
+        }
+        update(dt, gatherTargets) {
+          this.age += dt;
+          this.currentScale += (this.targetScale - this.currentScale) * Math.min(1, dt * 6.5);
+          this.group.scale.setScalar(this.currentScale);
+          this.flapPhase += dt * this.flapSpeed;
+          const flapAngle = Math.sin(this.flapPhase) * (this.isHero && !this.releasedHero ? 0.62 : 0.95) + 0.18;
+          this.rightWing.rotation.y = -flapAngle; this.leftWing.rotation.y = flapAngle;
+          if (this.isHero && !this.releasedHero) {
+            this.group.rotation.x = 0.25 + Math.sin(this.age * 2.1) * 0.08;
+            this.group.rotation.y = Math.sin(this.age * 1.3) * 0.22;
+            return true;
+          }
+          if (gatherTargets.length > 0) {
+            let nearest = gatherTargets[0], minDistSq = this.group.position.distanceToSquared(nearest);
+            for (let i = 1; i < gatherTargets.length; i++) {
+              const dSq = this.group.position.distanceToSquared(gatherTargets[i]);
+              if (dSq < minDistSq) { minDistSq = dSq; nearest = gatherTargets[i]; }
+            }
+            this.orbitAngle += dt * this.orbitSpeed;
+            const desired = new THREE.Vector3(
+              nearest.x + Math.cos(this.orbitAngle) * this.orbitRadius,
+              nearest.y + Math.sin(this.orbitAngle * 1.15) * (this.orbitRadius * 0.72),
+              nearest.z + Math.sin(this.orbitAngle) * 0.65
+            );
+            this.velocity.lerp(desired.sub(this.group.position).multiplyScalar(2.6), Math.min(1, dt * 3.8));
+          } else {
+            this.velocity.x += Math.sin(this.age * 1.9 + this.orbitAngle) * dt * 0.9;
+            this.velocity.y += (0.28 + Math.cos(this.age * 2.2 + this.orbitAngle) * 0.8) * dt;
+            this.velocity.clampLength(0.4, 2.8);
+          }
+          this.group.position.addScaledVector(this.velocity, dt);
+          const dummy = new THREE.Object3D();
+          dummy.position.copy(this.group.position);
+          dummy.lookAt(this.group.position.clone().add(this.velocity));
+          dummy.rotateX(Math.PI * 0.35);
+          this.group.quaternion.slerp(dummy.quaternion, Math.min(1, dt * 4.5));
+          if (this.age > this.maxAge - 1.2 && gatherTargets.length === 0) {
+            this.group.scale.setScalar(this.currentScale * Math.max(0, (this.maxAge - this.age) / 1.2));
+          }
+          if (this.age >= this.maxAge && gatherTargets.length === 0) {
+            butterflyRoot.remove(this.group); this.rightWing.material.dispose(); return false;
+          }
+          return true;
+        }
+      }
+
+      const butterflies = [], MAX_BUTTERFLIES = 42, THEME_CYCLE = ['pink', 'blue', 'yellow'];
+      let themeIdx = 0;
+      const heroButterflies = [null, null];
+      let bfHandStates = [], spawnCooldowns = [0, 0];
+
+      function seedDemoButterflies() {
+        if (butterflies.length > 0) return;
+        for (let i = 0; i < 7; i++) {
+          butterflies.push(new CrystalButterfly({
+            theme: i === 0 ? 'prismatic' : THEME_CYCLE[i % 3],
+            position: new THREE.Vector3((Math.random() - 0.5) * 4.5, (Math.random() - 0.5) * 2.8, (Math.random() - 0.5) * 1.5),
+            scale: i === 0 ? 1.1 : 0.55 + Math.random() * 0.25, isHero: false
+          }));
+        }
+      }
+
+      let cameraActive = false, mediaStream = null, handsInstance = null;
+      const dist2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      function landmarkToWorld(lm) {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const vidW = videoEl.videoWidth || vw, vidH = videoEl.videoHeight || vh;
+        const scale = Math.max(vw / vidW, vh / vidH);
+        const dispW = vidW * scale, dispH = vidH * scale;
+        const px = (1 - lm.x) * dispW - (dispW - vw) / 2;
+        const py = lm.y * dispH - (dispH - vh) / 2;
+        const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
+        const halfW = halfH * camera.aspect;
+        return new THREE.Vector3(((px / vw) * 2 - 1) * halfW, (-(py / vh) * 2 + 1) * halfH, -(lm.z || 0) * 2.5);
+      }
+
+      function classifyButterflyHand(lms) {
+        const wrist = lms[0], palm = dist2D(wrist, lms[9]) || 0.1;
+        const tips = [8, 12, 16, 20], pips = [6, 10, 14, 18];
+        let ext = 0; for (let i = 0; i < 4; i++) if (dist2D(lms[tips[i]], wrist) > dist2D(lms[pips[i]], wrist) * 1.12) ext++;
+        const thumbOpen = dist2D(lms[4], lms[17]) > palm * 0.95;
+        if (dist2D(lms[4], lms[8]) < palm * 0.34 && ext >= 1) {
+          return { gesture: 'pinch', anchor: { x: (lms[4].x + lms[8].x) * 0.5, y: (lms[4].y + lms[8].y) * 0.5, z: (lms[4].z + lms[8].z) * 0.5 } };
+        }
+        if (ext >= 3 && (ext === 4 || thumbOpen)) return { gesture: 'open', anchor: lms[9] };
+        if (ext <= 1) return { gesture: 'fist', anchor: lms[9] };
+        return { gesture: 'neutral', anchor: lms[9] };
+      }
+
+      function onHandsResults(results) {
+        const multi = results.multiHandLandmarks || [];
+          bfHandStates = multi.map((lms) => { const info = classifyButterflyHand(lms); return { gesture: info.gesture, worldPos: landmarkToWorld(info.anchor) }; });
+          if (bfHandStates.length === 0) { statusDot.className = 'status-dot active'; statusLabel.textContent = 'Hold a hand in view to begin.'; }
+          else {
+            statusDot.className = 'status-dot tracking';
+            const labels = { open: 'Open palm · Releasing butterflies', fist: 'Fist · Gathering butterflies', pinch: 'Pinch · Giant butterfly', neutral: 'Hand detected' };
+            statusLabel.textContent = bfHandStates.map((h) => labels[h.gesture]).join('  |  ');
+          }
+      }
+
+      function stopCamera() {
+        cameraActive = false; bfHandStates = [];
+        if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+        videoEl.srcObject = null; webcamWrap.classList.remove('visible');
+        camBtn.classList.remove('on'); camBtnText.textContent = 'Start camera';
+        statusDot.className = 'status-dot';
+        statusLabel.textContent = 'Turn on your camera to guide the butterflies.';
+      }
+
+      async function toggleCamera() {
+        sound.init();
+        if (cameraActive) { stopCamera(); return; }
+        camBtn.disabled = true; camBtnText.textContent = 'Starting…';
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Open this page over HTTPS to use your camera.');
+          if (typeof window.Hands === 'undefined') throw new Error('Hand tracking could not load. Check your connection and reload.');
+          let stream;
+          try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
+          catch (_) { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); }
+          mediaStream = stream; videoEl.srcObject = stream; await videoEl.play();
+          if (!handsInstance) {
+            handsInstance = new window.Hands({ locateFile: (file) => 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + file });
+            handsInstance.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.62, minTrackingConfidence: 0.58 });
+            handsInstance.onResults(onHandsResults);
+          }
+          cameraActive = true; webcamWrap.classList.add('visible');
+          camBtn.classList.add('on'); camBtnText.textContent = 'Stop camera';
+          statusDot.className = 'status-dot active';
+          let busy = false;
+          async function detectLoop() {
+            if (!cameraActive) return;
+            if (videoEl.readyState >= 2 && !busy) { busy = true; try { await handsInstance.send({ image: videoEl }); } catch (_) {} busy = false; }
+            requestAnimationFrame(detectLoop);
+          }
+          detectLoop();
+        } catch (err) {
+          showToast(err && err.message ? err.message : 'Camera unavailable. Check your browser permissions.');
+          stopCamera();
+        } finally { camBtn.disabled = false; }
+      }
+
+      camBtn.addEventListener('click', toggleCamera);
+
+      seedDemoButterflies();
+      let lastTime = performance.now();
+      function animate(now) {
+        requestAnimationFrame(animate);
+        const dt = Math.min(0.05, (now - lastTime) / 1000); lastTime = now;
+
+          const gatherTargets = [], activePinchSlots = new Set();
+          bfHandStates.forEach((hand, idx) => {
+            if (idx > 1) return;
+            if (hand.gesture === 'open') {
+              spawnCooldowns[idx] -= dt;
+              if (spawnCooldowns[idx] <= 0 && butterflies.length < MAX_BUTTERFLIES) {
+                spawnCooldowns[idx] = 0.18;
+                const theme = THEME_CYCLE[themeIdx++ % THEME_CYCLE.length];
+                butterflies.push(new CrystalButterfly({
+                  theme, position: hand.worldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5)),
+                  scale: 0.45 + Math.random() * 0.32, isHero: false
+                }));
+                sound.playFlutterNote();
+              }
+            } else if (hand.gesture === 'fist') {
+              gatherTargets.push(hand.worldPos);
+              if (butterflies.length > 0) sound.playGatherChime();
+            } else if (hand.gesture === 'pinch') {
+              activePinchSlots.add(idx);
+              if (!heroButterflies[idx]) {
+                const hero = new CrystalButterfly({ theme: 'prismatic', position: hand.worldPos.clone(), scale: 1.38, isHero: true });
+                heroButterflies[idx] = hero; butterflies.push(hero); sound.playPinchBloom();
+              } else heroButterflies[idx].group.position.lerp(hand.worldPos.clone().add(new THREE.Vector3(0, 0.22, 0.35)), Math.min(1, dt * 10));
+            }
+          });
+          for (let i = 0; i < 2; i++) {
+            if (heroButterflies[i] && !activePinchSlots.has(i)) {
+              heroButterflies[i].releasedHero = true; heroButterflies[i].age = 0; heroButterflies[i].maxAge = 8.5;
+              heroButterflies[i].velocity.set((Math.random() - 0.5) * 1.4, 1.15, 0.2); heroButterflies[i] = null;
+            }
+          }
+          for (let i = butterflies.length - 1; i >= 0; i--) if (!butterflies[i].update(dt, gatherTargets)) butterflies.splice(i, 1);
+        if (!cameraActive && butterflies.length === 0) seedDemoButterflies();
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>
