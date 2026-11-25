@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crystal Butterflies</title>
+  <title>Crystal Butterflies & 3D Particles</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -30,7 +30,8 @@
     }
     #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
 
-    #canvas-container { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2;  }
+    #canvas-container { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; cursor: grab; }
+    #canvas-container:active { cursor: grabbing; }
 
     .top-bar {
       position: fixed; top: 14px; left: 14px; right: 14px; z-index: 12;
@@ -46,6 +47,19 @@
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; flex-shrink: 0; transition: all 0.25s ease; }
     .status-dot.active { background: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.85); }
     .status-dot.tracking { background: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.85); }
+
+    .mode-switch {
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px;
+      background: rgba(15, 16, 24, 0.65); border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); pointer-events: auto;
+    }
+    .mode-btn {
+      border: none; background: transparent; color: rgba(255, 255, 255, 0.72);
+      font-size: 12px; font-weight: 500; padding: 6px 13px; border-radius: 999px;
+      cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+    }
+    .mode-btn:hover { color: #fff; }
+    .mode-btn.active { background: rgba(255, 255, 255, 0.92); color: #0b0d17; font-weight: 600; }
 
     .top-actions { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; }
     .cam-btn {
@@ -70,6 +84,50 @@
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 12;
       display: flex; flex-direction: column; align-items: center; gap: 9px; max-width: calc(100vw - 20px);
     }
+    .color-popover {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px;
+      background: rgba(16, 17, 26, 0.86); border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(18px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      opacity: 0; transform: translateY(8px); pointer-events: none; transition: all 0.2s ease;
+    }
+    .color-popover.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .preset-dot {
+      width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease;
+    }
+    .preset-dot:hover { transform: scale(1.16); border-color: #fff; }
+    .custom-color-label {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.78);
+      padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, 0.14); cursor: pointer;
+    }
+    #color-picker { width: 22px; height: 22px; border: none; background: transparent; cursor: pointer; }
+
+    .dock {
+      display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 999px;
+      background: rgba(18, 19, 28, 0.7); border: 1px solid rgba(255, 255, 255, 0.13);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55); overflow-x: auto; max-width: 100%; scrollbar-width: none;
+    }
+    .dock::-webkit-scrollbar { display: none; }
+    .shape-btn {
+      border: none; background: transparent; color: rgba(255, 255, 255, 0.68);
+      font-size: 12px; font-weight: 500; padding: 8px 13px; border-radius: 999px;
+      cursor: pointer; white-space: nowrap; transition: all 0.22s ease;
+    }
+    .shape-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+    .shape-btn.active { background: rgba(165, 198, 255, 0.94); color: #0b0d17; font-weight: 600; box-shadow: 0 0 18px rgba(165, 198, 255, 0.45); }
+    .dock-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.14); margin: 0 4px; flex-shrink: 0; }
+    .color-trigger {
+      width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.75);
+      background: #f5d08a; cursor: pointer; flex-shrink: 0; margin-right: 4px; box-shadow: 0 0 12px rgba(245, 208, 138, 0.45);
+    }
+    .manual-bar {
+      display: flex; align-items: center; gap: 10px; font-size: 11px; color: rgba(255, 255, 255, 0.62);
+      padding: 4px 12px; border-radius: 999px; background: rgba(15, 16, 24, 0.44);
+      border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px);
+    }
+    .manual-bar input[type="range"] { width: 108px; accent-color: #a5c6ff; cursor: pointer; height: 4px; }
+
     .butterfly-hint {
       display: flex; align-items: center; gap: 14px; padding: 8px 18px; border-radius: 999px;
       background: rgba(14, 14, 24, 0.45); border: 1px solid rgba(255, 255, 255, 0.14);
@@ -86,8 +144,10 @@
 
     @media (max-width: 640px) {
       .dock-wrapper { width: 95vw; }
-      .butterfly-hint { justify-content: center; flex-wrap: wrap; gap: 5px 12px; border-radius: 14px; }
+      .dock, .butterfly-hint { justify-content: center; flex-wrap: wrap; gap: 5px 10px; border-radius: 14px; }
       .status-group { order: 3; width: 100%; justify-content: center; }
+      .shape-btn { padding: 7px 10px; font-size: 11px; }
+      #webcam-wrap:not(.fullscreen-bg) { top: 106px; width: 108px; }
     }
   </style>
 
@@ -95,7 +155,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <div id="webcam-wrap" class="fullscreen-bg">
+  <div id="webcam-wrap">
     <video id="webcam" autoplay playsinline muted></video>
   </div>
   <div id="canvas-container"></div>
@@ -103,11 +163,16 @@
   <div class="top-bar">
     <div class="status-group">
       <span id="status-dot" class="status-dot"></span>
-      <span id="status-label">Turn on your camera to guide the butterflies.</span>
+      <span id="status-label">Drag to rotate, or start your camera to use hand gestures.</span>
+    </div>
+
+    <div class="mode-switch" role="tablist" aria-label="Choose an experience">
+      <button id="mode-particles" class="mode-btn active" type="button">✨ 3D Particles</button>
+      <button id="mode-butterfly" class="mode-btn" type="button">🦋 Crystal Butterflies</button>
     </div>
 
     <div class="top-actions">
-      <button id="mute-btn" class="icon-btn" type="button" title="Toggle butterfly sounds">🔊</button>
+      <button id="mute-btn" class="icon-btn hidden" type="button" title="Toggle butterfly sounds">🔊</button>
       <button id="cam-btn" class="cam-btn" type="button">
         <span>📷</span>
         <span id="cam-btn-text">Start camera</span>
@@ -117,7 +182,36 @@
 
   <div id="toast"></div>
 
-  <div id="butterfly-dock" class="dock-wrapper">
+  <div id="particle-dock" class="dock-wrapper">
+    <div id="color-popover" class="color-popover">
+      <button class="preset-dot" type="button" data-color="#f5d08a" style="background:#f5d08a" title="Sand gold"></button>
+      <button class="preset-dot" type="button" data-color="#ff7eb9" style="background:#ff7eb9" title="Cherry blossom pink"></button>
+      <button class="preset-dot" type="button" data-color="#60c8ff" style="background:#60c8ff" title="Starlight blue"></button>
+      <button class="preset-dot" type="button" data-color="#c084fc" style="background:#c084fc" title="Dream violet"></button>
+      <button class="preset-dot" type="button" data-color="#5eead4" style="background:#5eead4" title="Jade green"></button>
+      <label class="custom-color-label">
+        Custom
+        <input id="color-picker" type="color" value="#f5d08a" />
+      </label>
+    </div>
+
+    <div class="dock" role="toolbar" aria-label="Particle shapes and colors">
+      <button class="shape-btn" type="button" data-shape="heart">Heart</button>
+      <button class="shape-btn active" type="button" data-shape="saturn">Saturn</button>
+      <button class="shape-btn" type="button" data-shape="flower">Flower</button>
+      <button class="shape-btn" type="button" data-shape="buddha">Buddha</button>
+      <button class="shape-btn" type="button" data-shape="fireworks">Fireworks</button>
+      <div class="dock-divider"></div>
+      <button id="color-trigger" class="color-trigger" type="button" title="Choose a particle color"></button>
+    </div>
+
+    <div id="manual-bar" class="manual-bar">
+      <span>Spread / Zoom</span>
+      <input id="expansion-slider" type="range" min="0" max="100" value="25" />
+    </div>
+  </div>
+
+  <div id="butterfly-dock" class="dock-wrapper hidden">
     <div class="butterfly-hint">
       <span>✋ Open palm to release</span>
       <span>✊ Make a fist to gather</span>
@@ -137,7 +231,20 @@
       const camBtn = document.getElementById('cam-btn');
       const camBtnText = document.getElementById('cam-btn-text');
       const muteBtn = document.getElementById('mute-btn');
+      const modeParticlesBtn = document.getElementById('mode-particles');
+      const modeButterflyBtn = document.getElementById('mode-butterfly');
+      const particleDock = document.getElementById('particle-dock');
+      const butterflyDock = document.getElementById('butterfly-dock');
+      const colorTrigger = document.getElementById('color-trigger');
+      const colorPopover = document.getElementById('color-popover');
+      const colorPicker = document.getElementById('color-picker');
+      const expansionSlider = document.getElementById('expansion-slider');
+      const manualBar = document.getElementById('manual-bar');
       const toastEl = document.getElementById('toast');
+      const shapeBtns = Array.from(document.querySelectorAll('.shape-btn'));
+      const presetDots = Array.from(document.querySelectorAll('.preset-dot'));
+
+      let currentMode = 'particles';
       let toastTimer = null;
       function showToast(msg) {
         toastEl.textContent = msg;
@@ -229,7 +336,7 @@
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 120);
-      camera.position.set(0, 0, 10);
+      camera.position.set(0, 0.5, 13.5);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -241,8 +348,168 @@
       dirLight.position.set(3, 5, 8);
       scene.add(dirLight);
 
+      const particleRoot = new THREE.Group();
       const butterflyRoot = new THREE.Group();
-      scene.add(butterflyRoot);
+      butterflyRoot.visible = false;
+      scene.add(particleRoot, butterflyRoot);
+
+      const PARTICLE_COUNT = 10000;
+      function createGlowTexture() {
+        const size = 64, c = document.createElement('canvas'); c.width = size; c.height = size;
+        const ctx = c.getContext('2d');
+        const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.24, 'rgba(255,250,235,0.85)');
+        g.addColorStop(0.55, 'rgba(255,235,200,0.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+        return new THREE.CanvasTexture(c);
+      }
+
+      function buildHeartTargets(count) {
+        const arr = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          const t = Math.random() * Math.PI * 2, u = (Math.random() - 0.5) * 2;
+          const shell = 0.65 + Math.pow(Math.random(), 0.45) * 0.35;
+          const x = 16 * Math.pow(Math.sin(t), 3) * 0.22 * shell;
+          const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * 0.22 * shell + 0.3;
+          const depth = Math.sqrt(Math.max(0.05, 1 - Math.abs(u))) * (1.55 - Math.abs(x) * 0.22);
+          arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = u * depth * shell;
+        }
+        return arr;
+      }
+
+      function buildSaturnTargets(count) {
+        const arr = new Float32Array(count * 3);
+        const coreCount = Math.floor(count * 0.44), cosT = Math.cos(0.44), sinT = Math.sin(0.44);
+        for (let i = 0; i < count; i++) {
+          let x, y, z;
+          if (i < coreCount) {
+            const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2;
+            const r = 2.05 * (0.88 + Math.random() * 0.14);
+            x = r * Math.sin(phi) * Math.cos(theta); y = r * Math.cos(phi) * 0.92; z = r * Math.sin(phi) * Math.sin(theta);
+          } else {
+            const r = Math.random() < 0.55 ? 2.85 + Math.random() * 1.15 : 4.28 + Math.random() * 1.15;
+            const theta = Math.random() * Math.PI * 2;
+            x = Math.cos(theta) * r; y = (Math.random() - 0.5) * 0.14; z = Math.sin(theta) * r;
+          }
+          arr[i * 3] = x; arr[i * 3 + 1] = y * cosT - z * sinT; arr[i * 3 + 2] = y * sinT + z * cosT;
+        }
+        return arr;
+      }
+
+      function buildFlowerTargets(count) {
+        const arr = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          if (i < count * 0.18) {
+            const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2, r = 0.85 * Math.cbrt(Math.random());
+            arr[i * 3] = r * Math.sin(phi) * Math.cos(theta); arr[i * 3 + 1] = r * Math.cos(phi) * 0.65 + 0.35; arr[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+          } else {
+            const layer = i % 3, angle = Math.random() * Math.PI * 2;
+            const petalWave = Math.pow(Math.abs(Math.cos(angle * 3 + layer * 0.52)), 0.72);
+            const u = Math.pow(Math.random(), 0.65), r = u * (2.2 + layer * 1.05) * (0.35 + 0.65 * petalWave);
+            arr[i * 3] = Math.cos(angle) * r;
+            arr[i * 3 + 1] = Math.sin(u * Math.PI * 0.85) * (1.25 - layer * 0.25) - 0.55 + layer * 0.22 + (Math.random() - 0.5) * 0.12;
+            arr[i * 3 + 2] = Math.sin(angle) * r;
+          }
+        }
+        return arr;
+      }
+
+      function buildBuddhaTargets(count) {
+        const arr = new Float32Array(count * 3);
+        function sampleEllipsoid(cx, cy, cz, rx, ry, rz) {
+          const theta = Math.random() * 2 * Math.PI, phi = Math.acos(2 * Math.random() - 1);
+          const s = 0.78 + Math.pow(Math.random(), 0.45) * 0.22;
+          return [cx + rx * s * Math.sin(phi) * Math.cos(theta), cy + ry * s * Math.cos(phi), cz + rz * s * Math.sin(phi) * Math.sin(theta)];
+        }
+        for (let i = 0; i < count; i++) {
+          const p = Math.random(); let pt;
+          if (p < 0.16) {
+            const a = Math.random() * Math.PI * 2, r = 1.9 + Math.sin(a * 12) * 0.18 + Math.random() * 0.55;
+            pt = [Math.cos(a) * r, -2.55 + (Math.random() - 0.5) * 0.42, Math.sin(a) * r * 0.75];
+          } else if (p < 0.36) pt = sampleEllipsoid((Math.random() < 0.5 ? -1 : 1) * 1.15, -1.78, 0.28, 1.28, 0.62, 0.85);
+          else if (p < 0.58) pt = sampleEllipsoid(0, -0.35, 0, 1.18, 1.38, 0.78);
+          else if (p < 0.68) pt = sampleEllipsoid((Math.random() < 0.5 ? -1 : 1) * 1.12, -0.15, 0.12, 0.45, 0.92, 0.48);
+          else if (p < 0.73) pt = sampleEllipsoid(0, -1.25, 0.62, 0.62, 0.32, 0.36);
+          else if (p < 0.84) pt = sampleEllipsoid(0, 1.52, 0.05, 0.72, 0.84, 0.72);
+          else if (p < 0.88) pt = sampleEllipsoid(0, 2.38, 0.02, 0.34, 0.3, 0.34);
+          else { const a = Math.random() * Math.PI * 2, r = 1.55 + (Math.random() - 0.5) * 0.24; pt = [Math.cos(a) * r, 1.48 + Math.sin(a) * r, -0.82 + (Math.random() - 0.5) * 0.12]; }
+          arr[i * 3] = pt[0]; arr[i * 3 + 1] = pt[1]; arr[i * 3 + 2] = pt[2];
+        }
+        return arr;
+      }
+
+      function buildFireworksTargets(count) {
+        const arr = new Float32Array(count * 3);
+        const bursts = [
+          { cx: 0, cy: 0.5, cz: 0, r: 3.8, rays: 64 },
+          { cx: -2.6, cy: 1.6, cz: -1.1, r: 2.1, rays: 36 },
+          { cx: 2.7, cy: -0.9, cz: 0.9, r: 2.3, rays: 40 },
+          { cx: 1.4, cy: 2.1, cz: -0.8, r: 1.7, rays: 28 }
+        ];
+        for (let i = 0; i < count; i++) {
+          const b = bursts[i % bursts.length], rayIdx = Math.floor(Math.random() * b.rays);
+          const phi = Math.acos(1 - 2 * ((rayIdx + 0.5) / b.rays)), theta = Math.PI * (1 + Math.sqrt(5)) * rayIdx;
+          const progress = Math.pow(Math.random(), 0.55), dist = progress * b.r;
+          arr[i * 3] = b.cx + Math.sin(phi) * Math.cos(theta) * dist;
+          arr[i * 3 + 1] = b.cy + Math.cos(phi) * dist - progress * progress * 0.65;
+          arr[i * 3 + 2] = b.cz + Math.sin(phi) * Math.sin(theta) * dist;
+        }
+        return arr;
+      }
+
+      const SHAPE_TARGETS = {
+        heart: buildHeartTargets(PARTICLE_COUNT),
+        saturn: buildSaturnTargets(PARTICLE_COUNT),
+        flower: buildFlowerTargets(PARTICLE_COUNT),
+        buddha: buildBuddhaTargets(PARTICLE_COUNT),
+        fireworks: buildFireworksTargets(PARTICLE_COUNT)
+      };
+
+      const pScatter = new Float32Array(PARTICLE_COUNT * 3);
+      const pPhases = new Float32Array(PARTICLE_COUNT);
+      const pPositions = new Float32Array(PARTICLE_COUNT * 3);
+      const pColors = new Float32Array(PARTICLE_COUNT * 3);
+      let currentShape = 'saturn';
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        pPositions[i * 3] = SHAPE_TARGETS.saturn[i * 3] * 1.3;
+        pPositions[i * 3 + 1] = SHAPE_TARGETS.saturn[i * 3 + 1] * 1.3;
+        pPositions[i * 3 + 2] = SHAPE_TARGETS.saturn[i * 3 + 2] * 1.3;
+        const phi = Math.acos(1 - 2 * Math.random()), theta = Math.random() * Math.PI * 2, amp = 0.6 + Math.random() * 1.8;
+        pScatter[i * 3] = Math.sin(phi) * Math.cos(theta) * amp;
+        pScatter[i * 3 + 1] = Math.cos(phi) * amp;
+        pScatter[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * amp;
+        pPhases[i] = Math.random() * Math.PI * 2;
+      }
+
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+      pGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
+      const pMat = new THREE.PointsMaterial({
+        size: 0.145, map: createGlowTexture(), vertexColors: true,
+        transparent: true, opacity: 0.92, depthWrite: false, blending: THREE.AdditiveBlending
+      });
+      const particleCloud = new THREE.Points(pGeo, pMat);
+      particleRoot.add(particleCloud);
+
+      function applyThemeColor(hex) {
+        const base = new THREE.Color(hex), hsl = {}; base.getHSL(hsl);
+        const accent = new THREE.Color().setHSL((hsl.h + 0.08) % 1, Math.min(1, hsl.s * 1.05), Math.min(0.88, hsl.l + 0.14));
+        const warmWhite = new THREE.Color('#fff9ef'), tmp = new THREE.Color();
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          const r = (i * 2654435761 % 1000) / 1000;
+          if (r < 0.62) tmp.copy(base).lerp(accent, r / 0.62);
+          else if (r < 0.88) tmp.copy(accent).lerp(warmWhite, ((r - 0.62) / 0.26) * 0.65);
+          else tmp.copy(base).multiplyScalar(0.58);
+          pColors[i * 3] = tmp.r; pColors[i * 3 + 1] = tmp.g; pColors[i * 3 + 2] = tmp.b;
+        }
+        pGeo.attributes.color.needsUpdate = true;
+        colorTrigger.style.background = hex;
+        colorTrigger.style.boxShadow = '0 0 14px ' + hex;
+        colorPicker.value = hex;
+      }
+      applyThemeColor('#f5d08a');
+
       const PALETTES = {
         pink: { fills: ['#ff88c8', '#ff5da2', '#ffc2e2', '#ffb480', '#d88cff', '#ff70b8'], edge: '#3d225c' },
         blue: { fills: ['#62d4ff', '#3b9eff', '#9cebff', '#8c7dff', '#58b4ff', '#c9f6ff'], edge: '#1e2458' },
@@ -400,7 +667,64 @@
         }
       }
 
-      let cameraActive = false, mediaStream = null, handsInstance = null;
+      let cameraActive = false, mediaStream = null, handsInstance = null, handsDetected = 0;
+      let targetExpansion = 0.25, currentExpansion = 0.25, targetScale = 1.0, currentScale = 1.0;
+      let isDragging = false, prevPointer = { x: 0, y: 0 };
+      let rotY = 0, rotX = 0.12, targetRotY = 0, targetRotX = 0.12;
+
+      function switchMode(mode) {
+        currentMode = mode;
+        const isParticles = mode === 'particles';
+        modeParticlesBtn.classList.toggle('active', isParticles);
+        modeButterflyBtn.classList.toggle('active', !isParticles);
+        particleDock.classList.toggle('hidden', !isParticles);
+        butterflyDock.classList.toggle('hidden', isParticles);
+        muteBtn.classList.toggle('hidden', isParticles);
+        particleRoot.visible = isParticles;
+        butterflyRoot.visible = !isParticles;
+        webcamWrap.classList.toggle('fullscreen-bg', !isParticles);
+        if (isParticles) {
+          camera.position.set(0, 0.5, 13.5);
+          statusLabel.textContent = cameraActive ? 'Move your hands apart or together to zoom.' : 'Drag to rotate, or start your camera to use hand gestures.';
+        } else {
+          camera.position.set(0, 0, 10);
+          seedDemoButterflies();
+          statusLabel.textContent = cameraActive ? 'Hold a hand in view to begin.' : 'Turn on your camera to guide the butterflies.';
+        }
+      }
+
+      modeParticlesBtn.addEventListener('click', () => switchMode('particles'));
+      modeButterflyBtn.addEventListener('click', () => switchMode('butterfly'));
+
+      container.addEventListener('pointerdown', (e) => { if (currentMode !== 'particles') return; isDragging = true; prevPointer = { x: e.clientX, y: e.clientY }; });
+      window.addEventListener('pointermove', (e) => {
+        if (!isDragging || currentMode !== 'particles') return;
+        targetRotY += (e.clientX - prevPointer.x) * 0.006;
+        targetRotX = Math.max(-1.1, Math.min(1.1, targetRotX + (e.clientY - prevPointer.y) * 0.005));
+        prevPointer = { x: e.clientX, y: e.clientY };
+      });
+      window.addEventListener('pointerup', () => { isDragging = false; });
+      container.addEventListener('wheel', (e) => {
+        if (currentMode !== 'particles') return;
+        camera.position.z = Math.max(7.5, Math.min(22, camera.position.z + e.deltaY * 0.01));
+      }, { passive: true });
+
+      shapeBtns.forEach((btn) => btn.addEventListener('click', () => {
+        const shape = btn.getAttribute('data-shape');
+        if (!SHAPE_TARGETS[shape]) return;
+        currentShape = shape;
+        shapeBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      }));
+      colorTrigger.addEventListener('click', (e) => { e.stopPropagation(); colorPopover.classList.toggle('open'); });
+      document.addEventListener('click', (e) => { if (!colorPopover.contains(e.target) && e.target !== colorTrigger) colorPopover.classList.remove('open'); });
+      presetDots.forEach((dot) => dot.addEventListener('click', () => applyThemeColor(dot.getAttribute('data-color'))));
+      colorPicker.addEventListener('input', (e) => applyThemeColor(e.target.value));
+      expansionSlider.addEventListener('input', (e) => {
+        if (cameraActive && handsDetected > 0) return;
+        const v = Number(e.target.value) / 100;
+        targetExpansion = v; targetScale = 0.72 + v * 0.95;
+      });
+
       const dist2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
       function landmarkToWorld(lm) {
         const vw = window.innerWidth, vh = window.innerHeight;
@@ -412,6 +736,12 @@
         const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
         const halfW = halfH * camera.aspect;
         return new THREE.Vector3(((px / vw) * 2 - 1) * halfW, (-(py / vh) * 2 + 1) * halfH, -(lm.z || 0) * 2.5);
+      }
+
+      function computeHandOpenness(lms) {
+        const wrist = lms[0], palm = dist2D(wrist, lms[9]) || 0.08, tips = [4, 8, 12, 16, 20];
+        let avg = 0; for (let i = 0; i < tips.length; i++) avg += dist2D(lms[tips[i]], wrist) / palm;
+        return Math.max(0, Math.min(1, (avg / tips.length - 0.95) / 1.05));
       }
 
       function classifyButterflyHand(lms) {
@@ -429,6 +759,28 @@
 
       function onHandsResults(results) {
         const multi = results.multiHandLandmarks || [];
+        handsDetected = multi.length;
+        if (currentMode === 'particles') {
+          if (handsDetected === 0) {
+            statusDot.className = 'status-dot active';
+            statusLabel.textContent = 'Hold your hands in view to begin.';
+            const fb = Number(expansionSlider.value) / 100;
+            targetExpansion = fb; targetScale = 0.72 + fb * 0.95;
+            return;
+          }
+          statusDot.className = 'status-dot tracking';
+          let openSum = 0; for (let i = 0; i < handsDetected; i++) openSum += computeHandOpenness(multi[i]);
+          const avgOpen = openSum / handsDetected;
+          if (handsDetected >= 2) {
+            const spread = Math.max(0, Math.min(1, (dist2D(multi[0][9], multi[1][9]) - 0.14) / 0.56));
+            targetExpansion = Math.max(0, Math.min(1, avgOpen * 0.55 + spread * 0.45));
+            targetScale = 0.58 + spread * 1.15 + avgOpen * 0.35;
+            statusLabel.textContent = 'Two hands detected · Move apart to expand or together to shrink.';
+          } else {
+            targetExpansion = avgOpen; targetScale = 0.68 + avgOpen * 0.85;
+            statusLabel.textContent = 'One hand detected · Open your palm to expand or make a fist to shrink.';
+          }
+        } else {
           bfHandStates = multi.map((lms) => { const info = classifyButterflyHand(lms); return { gesture: info.gesture, worldPos: landmarkToWorld(info.anchor) }; });
           if (bfHandStates.length === 0) { statusDot.className = 'status-dot active'; statusLabel.textContent = 'Hold a hand in view to begin.'; }
           else {
@@ -436,15 +788,17 @@
             const labels = { open: 'Open palm · Releasing butterflies', fist: 'Fist · Gathering butterflies', pinch: 'Pinch · Giant butterfly', neutral: 'Hand detected' };
             statusLabel.textContent = bfHandStates.map((h) => labels[h.gesture]).join('  |  ');
           }
+        }
       }
 
       function stopCamera() {
-        cameraActive = false; bfHandStates = [];
+        cameraActive = false; handsDetected = 0; bfHandStates = [];
         if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
         videoEl.srcObject = null; webcamWrap.classList.remove('visible');
         camBtn.classList.remove('on'); camBtnText.textContent = 'Start camera';
         statusDot.className = 'status-dot';
-        statusLabel.textContent = 'Turn on your camera to guide the butterflies.';
+        statusLabel.textContent = currentMode === 'particles' ? 'Drag to rotate, or start your camera to use hand gestures.' : 'Turn on your camera to guide the butterflies.';
+        manualBar.style.opacity = '1';
       }
 
       async function toggleCamera() {
@@ -465,7 +819,7 @@
           }
           cameraActive = true; webcamWrap.classList.add('visible');
           camBtn.classList.add('on'); camBtnText.textContent = 'Stop camera';
-          statusDot.className = 'status-dot active';
+          statusDot.className = 'status-dot active'; manualBar.style.opacity = '0.45';
           let busy = false;
           async function detectLoop() {
             if (!cameraActive) return;
@@ -481,12 +835,32 @@
 
       camBtn.addEventListener('click', toggleCamera);
 
-      seedDemoButterflies();
-      let lastTime = performance.now();
+      let lastTime = performance.now(), elapsed = 0;
       function animate(now) {
         requestAnimationFrame(animate);
-        const dt = Math.min(0.05, (now - lastTime) / 1000); lastTime = now;
+        const dt = Math.min(0.05, (now - lastTime) / 1000); lastTime = now; elapsed += dt;
 
+        if (currentMode === 'particles') {
+          currentExpansion += (targetExpansion - currentExpansion) * Math.min(1, dt * 6.5);
+          currentScale += (targetScale - currentScale) * Math.min(1, dt * 5.8);
+          if (!isDragging) targetRotY += dt * (currentShape === 'fireworks' ? 0.14 : 0.22);
+          rotY += (targetRotY - rotY) * Math.min(1, dt * 7);
+          rotX += (targetRotX - rotX) * Math.min(1, dt * 7);
+          particleCloud.rotation.y = rotY; particleCloud.rotation.x = rotX;
+          pMat.size = 0.125 + currentExpansion * 0.065;
+
+          const targetArr = SHAPE_TARGETS[currentShape], posArr = pGeo.attributes.position.array;
+          const morphRate = Math.min(1, dt * 4.8), explodeFactor = Math.pow(currentExpansion, 1.35) * 3.1;
+          const fwPulse = currentShape === 'fireworks' ? (0.88 + Math.sin(elapsed * 1.9) * 0.18) : 1.0;
+
+          for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const i3 = i * 3, shimmer = Math.sin(elapsed * 1.8 + pPhases[i]) * (0.045 + currentExpansion * 0.11);
+            posArr[i3] += (targetArr[i3] * currentScale * fwPulse + pScatter[i3] * explodeFactor + shimmer - posArr[i3]) * morphRate;
+            posArr[i3 + 1] += (targetArr[i3 + 1] * currentScale * fwPulse + pScatter[i3 + 1] * explodeFactor + Math.cos(elapsed * 1.5 + pPhases[i]) * 0.04 - posArr[i3 + 1]) * morphRate;
+            posArr[i3 + 2] += (targetArr[i3 + 2] * currentScale * fwPulse + pScatter[i3 + 2] * explodeFactor - posArr[i3 + 2]) * morphRate;
+          }
+          pGeo.attributes.position.needsUpdate = true;
+        } else {
           const gatherTargets = [], activePinchSlots = new Set();
           bfHandStates.forEach((hand, idx) => {
             if (idx > 1) return;
@@ -518,8 +892,9 @@
               heroButterflies[i].velocity.set((Math.random() - 0.5) * 1.4, 1.15, 0.2); heroButterflies[i] = null;
             }
           }
+          if (!cameraActive && butterflies.length === 0) seedDemoButterflies();
           for (let i = butterflies.length - 1; i >= 0; i--) if (!butterflies[i].update(dt, gatherTargets)) butterflies.splice(i, 1);
-        if (!cameraActive && butterflies.length === 0) seedDemoButterflies();
+        }
         renderer.render(scene, camera);
       }
 
@@ -528,6 +903,7 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
+      switchMode('butterfly');
       requestAnimationFrame(animate);
     })();
   </script>
